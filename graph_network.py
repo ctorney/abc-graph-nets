@@ -20,24 +20,12 @@
 # limitations under the License.
 # ============================================================================
 
-"""Graph network implementation accompanying ICML 2020 submission.
+"""Graph network implementation based on 
+    https://github.com/deepmind/deepmind-research/tree/master/learning_to_simulate
 
-   "Learning to Simulate Complex Physics with Graph Networks"
-
-   Alvaro Sanchez-Gonzalez*, Jonathan Godwin*, Tobias Pfaff*, Rex Ying,
-   Jure Leskovec, Peter W. Battaglia
-
-   https://arxiv.org/abs/2002.09405
-
-The Sonnet `EncodeProcessDecode` module provided here implements the learnable
-parts of the model.
-It assumes an encoder preprocessor has already built a graph with
-connectivity and features as described in the paper, with features normalized
-to zero-mean unit-variance.
-
-Dependencies include Tensorflow 1.x, Sonnet 1.x and the Graph Nets 1.1 library.
 """
 from typing import Callable
+from graph_nets import utils_tf
 
 import graph_nets as gn
 import sonnet as snt
@@ -46,8 +34,7 @@ import tensorflow as tf
 Reducer = Callable[[tf.Tensor, tf.Tensor, tf.Tensor], tf.Tensor]
 
 
-def build_mlp(
-    hidden_size: int, num_hidden_layers: int, output_size: int, activation=tf.nn.relu,activate_final=False) -> snt.Module:
+def build_mlp(hidden_size: int, num_hidden_layers: int, output_size: int, activation=tf.nn.relu,activate_final=False) -> snt.Module:
   """Builds an MLP."""
   return snt.nets.MLP(output_sizes=[hidden_size] * num_hidden_layers + [output_size],activation=activation,activate_final=activate_final)
 
@@ -111,6 +98,7 @@ class EncodeProcessDecode(snt.Module):
           num_hidden_layers=self._mlp_num_hidden_layers,
           output_size=self._latent_size)
       return snt.Sequential([mlp, snt.LayerNorm(axis=slice(1, None),create_scale=False,create_offset=False)])
+    
 
     # The encoder graph network independently encodes edge and node features.
     encoder_kwargs = dict(
@@ -123,16 +111,26 @@ class EncodeProcessDecode(snt.Module):
     # it also outputs the messages as updated edge latent features.
     self._processor_networks = []
     for _ in range(self._num_message_passing_steps):
-      self._processor_networks.append(
-          gn.modules.InteractionNetwork(
-              edge_model_fn=build_mlp_with_layer_norm,
-              node_model_fn=build_mlp_with_layer_norm,
-              reducer=self._reducer))
+        #encoder_kwargs = dict(
+        #    edge_model_fn=build_mp_with_layer_norm,
+        #    node_model_fn=build_mp_with_layer_norm,reducer=self._reducer)
+        self._processor_networks.append(
+              gn.modules.InteractionNetwork(edge_model_fn=build_mlp_with_layer_norm,
+                  node_model_fn=build_mlp_with_layer_norm,
+                  reducer=self._reducer))
     # The decoder MLP decodes node latent features into the output size.
     
     decoder_kwargs = dict(
     global_model_fn=build_mlp_with_layer_norm)
     self._decoder_network = gn.modules.GraphIndependent(**decoder_kwargs)
+    
+    #self._output_transform =tf.keras.models.Sequential()
+
+    #for _ in range(self._mlp_num_hidden_layers):
+    #    self._output_transform.add(tf.keras.layers.Dense(self._mlp_hidden_size, activation='relu'))
+
+    #self._output_transform.add(tf.keras.layers.Dense(self._output_size,activation=tf.nn.softplus))
+
     self._output_transform = build_mlp(
         hidden_size=self._mlp_hidden_size,
         num_hidden_layers=self._mlp_num_hidden_layers,
@@ -169,6 +167,14 @@ class EncodeProcessDecode(snt.Module):
     reducer = tf.math.unsorted_segment_sum
 
     latent_graph_m = latent_graph_m.replace(globals=gn.blocks.NodesToGlobalsAggregator(reducer=reducer)(latent_graph_m))
+    #num_graphs = utils_tf.get_num_graphs(latent_graph_m)
+    #graph_index = tf.range(num_graphs)
+    #indices = utils_tf.repeat(graph_index, latent_graph_m.n_node, axis=0)#,
+                              #sum_repeats_hint=_get_static_num_nodes(graph))
+        
+    #indices = tf.repeat(graph_index, latent_graph_m.n_node,axis=0)
+    #new_globals = tf.math.unsorted_segment_sum(latent_graph_m.nodes, indices, num_graphs)
+    #latent_graph_m = latent_graph_m.replace(globals=new_globals)
 
     return latent_graph_m
 

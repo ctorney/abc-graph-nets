@@ -19,7 +19,7 @@ def get_record(group_id,timestep,parameter_vector,pos,vel):
 
 
 class zonal_model:
-    def __init__(self, N, timesteps, discard, repeat, L, dt, save_interval,data_directory='tmp_datasets', disable_progress=False):
+    def __init__(self, N, timesteps, discard, repeat, L, dt, save_interval,train_directory='train_datasets', valid_directory='valid_datasets', disable_progress=False):
         self.N = N
         self.timesteps = timesteps
         self.discard = discard
@@ -32,14 +32,20 @@ class zonal_model:
 
         self.sim_counter=0
 
-        if not os.path.exists(data_directory):
-            os.makedirs(data_directory)
+        if not os.path.exists(train_directory):
+            os.makedirs(train_directory)
 
-        self.data_directory = data_directory
+        if not os.path.exists(valid_directory):
+            os.makedirs(valid_directory)
+
+        self.train_directory = train_directory
+        self.valid_directory = valid_directory
 
         # turn progress bar on or off
         self.disable_progress = disable_progress
 
+        self.valid_fraction = 0.1
+        
     def initialise_state(self):
 
         self.positions = tf.random.uniform((self.B,self.N,2),0.5*self.L, 0.5*self.L+20) #0,self.L)
@@ -52,8 +58,11 @@ class zonal_model:
 
         eta, Ra, Ro, Rr, vs, va, sigma = params
         
-        record_file = self.data_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
+        record_file = self.train_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
         self.writer = tf.io.TFRecordWriter(record_file) 
+        
+        valid_file = self.valid_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
+        self.validwriter = tf.io.TFRecordWriter(valid_file) 
         
         # tensorflow function to run an update step
         @tf.function
@@ -198,7 +207,10 @@ class zonal_model:
             vel =  tf.io.serialize_tensor(velocities[b])
 
             tf_record = get_record(b,counter,params,pos,vel)
-            self.writer.write(tf_record.SerializeToString())
+            if b> self.B*self.valid_fraction:
+                self.writer.write(tf_record.SerializeToString())
+            else:
+                self.validwriter.write(tf_record.SerializeToString())
 
         
         return 
