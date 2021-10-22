@@ -6,7 +6,13 @@ import time
 
 from tqdm import tqdm
 import tensorflow as tf
+
 import os
+
+
+SPEED = 3.0
+REP_RADIUS = 1.0
+NOISE = 0.1
 
 def get_record(group_id,timestep,parameter_vector,pos,vel):
     feature = { 'group_id': tf.train.Feature(int64_list=tf.train.Int64List(value=[group_id])),
@@ -56,7 +62,7 @@ class zonal_model:
 
     def run_sim(self, *params):
 
-        eta, Ra, Ro, Rr, vs, va, sigma = params
+        eta, Ra, Ro, va = params
         
         record_file = self.train_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
         self.writer = tf.io.TFRecordWriter(record_file) 
@@ -91,13 +97,13 @@ class zonal_model:
             dist = tf.math.sqrt(tf.square(dx)+tf.square(dy))
     
             # repulsion 
-            rep_x = tf.where(dist<=Rr, -dx, tf.zeros_like(dx))
+            rep_x = tf.where(dist<=REP_RADIUS, -dx, tf.zeros_like(dx))
             rep_x = tf.where(rel_angle_to_neigh<0.5*va, rep_x, tf.zeros_like(rep_x))
             rep_x = tf.where(rel_angle_to_neigh>-0.5*va, rep_x, tf.zeros_like(rep_x))
             rep_x = tf.math.divide_no_nan(rep_x,tf.math.square(dist))
             rep_x = tf.reduce_sum(rep_x,axis=2)
 
-            rep_y = tf.where(dist<=Rr, -dy, tf.zeros_like(dy))
+            rep_y = tf.where(dist<=REP_RADIUS, -dy, tf.zeros_like(dy))
             rep_y = tf.where(rel_angle_to_neigh<0.5*va, rep_y, tf.zeros_like(rep_y))
             rep_y = tf.where(rel_angle_to_neigh>-0.5*va, rep_y, tf.zeros_like(rep_y))
             rep_y = tf.math.divide_no_nan(rep_y,tf.math.square(dist))
@@ -149,7 +155,7 @@ class zonal_model:
 
 
             # add perception noise
-            noise = tf.random.normal(shape=(self.B,self.N,1),mean=0,stddev=sigma*(self.dt**0.5))
+            noise = tf.random.normal(shape=(self.B,self.N,1),mean=0,stddev=NOISE*(self.dt**0.5))
             d_angle = d_angle + noise
             
             # restrict to maximum turning angle
@@ -159,7 +165,7 @@ class zonal_model:
             A = A + d_angle
             
             # update positions
-            velocity = self.dt*vs*tf.concat([tf.cos(A),tf.sin(A)],axis=-1)
+            velocity = self.dt*SPEED*tf.concat([tf.cos(A),tf.sin(A)],axis=-1)
             X += velocity
 
             # add periodic boundary conditions

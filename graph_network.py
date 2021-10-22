@@ -27,6 +27,7 @@
 from typing import Callable
 from graph_nets import utils_tf
 
+import numpy as np
 import graph_nets as gn
 import sonnet as snt
 import tensorflow as tf
@@ -49,6 +50,8 @@ class EncodeProcessDecode(snt.Module):
       mlp_num_hidden_layers: int,
       num_message_passing_steps: int,
       output_size: int,
+      output_min: np.array,
+      output_max: np.array,
       reducer: Reducer = tf.math.unsorted_segment_sum,
       name: str = "EncodeProcessDecode"):
     """Inits the model.
@@ -73,6 +76,8 @@ class EncodeProcessDecode(snt.Module):
     self._mlp_num_hidden_layers = mlp_num_hidden_layers
     self._num_message_passing_steps = num_message_passing_steps
     self._output_size = output_size
+    self._output_min = tf.convert_to_tensor(output_min)
+    self._output_range = tf.convert_to_tensor(output_max - output_min)
     self._reducer = reducer
 
     #with self._enter_variable_scope():
@@ -88,7 +93,7 @@ class EncodeProcessDecode(snt.Module):
     latent_graph_m = self._process(latent_graph_0)
     decode_graph_m = self._decode(latent_graph_m)
     # Decode from the last latent graph.
-    return self._output_transform(decode_graph_m.globals)
+    return self._output_min + self._output_range*tf.nn.sigmoid(self._output_transform(decode_graph_m.globals))
 
   def _networks_builder(self):
     """Builds the networks."""
@@ -134,7 +139,7 @@ class EncodeProcessDecode(snt.Module):
     self._output_transform = build_mlp(
         hidden_size=self._mlp_hidden_size,
         num_hidden_layers=self._mlp_num_hidden_layers,
-        output_size=self._output_size, activation=tf.nn.softplus,activate_final=True)
+        output_size=self._output_size) #, activation=tf.nn.softplus,activate_final=True)
   def _encode(
       self, input_graph: gn.graphs.GraphsTuple) -> gn.graphs.GraphsTuple:
     """Encodes the input graph features into a latent graph."""
