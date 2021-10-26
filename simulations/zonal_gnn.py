@@ -11,7 +11,7 @@ import os
 
 
 SPEED = 3.0
-REP_RADIUS = 1.0
+ETA = 0.9
 NOISE = 0.1
 
 def get_record(group_id,timestep,parameter_vector,pos,vel):
@@ -62,7 +62,7 @@ class zonal_model:
 
     def run_sim(self, *params):
 
-        eta, Ra, Ro, va = params
+        Rr, Ra, Ro, va = params
         
         record_file = self.train_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
         self.writer = tf.io.TFRecordWriter(record_file) 
@@ -97,13 +97,13 @@ class zonal_model:
             dist = tf.math.sqrt(tf.square(dx)+tf.square(dy))
     
             # repulsion 
-            rep_x = tf.where(dist<=REP_RADIUS, -dx, tf.zeros_like(dx))
+            rep_x = tf.where(dist<=Rr, -dx, tf.zeros_like(dx))
             rep_x = tf.where(rel_angle_to_neigh<0.5*va, rep_x, tf.zeros_like(rep_x))
             rep_x = tf.where(rel_angle_to_neigh>-0.5*va, rep_x, tf.zeros_like(rep_x))
             rep_x = tf.math.divide_no_nan(rep_x,tf.math.square(dist))
             rep_x = tf.reduce_sum(rep_x,axis=2)
 
-            rep_y = tf.where(dist<=REP_RADIUS, -dy, tf.zeros_like(dy))
+            rep_y = tf.where(dist<=Rr, -dy, tf.zeros_like(dy))
             rep_y = tf.where(rel_angle_to_neigh<0.5*va, rep_y, tf.zeros_like(rep_y))
             rep_y = tf.where(rel_angle_to_neigh>-0.5*va, rep_y, tf.zeros_like(rep_y))
             rep_y = tf.math.divide_no_nan(rep_y,tf.math.square(dist))
@@ -147,7 +147,7 @@ class zonal_model:
             d_angle = tf.expand_dims(d_angle,-1)
 
             
-            d_angle = tf.math.atan2((1-eta)*tf.math.sin(d_angle) + eta*sin_A, (1-eta)*tf.math.cos(d_angle) + eta*cos_A)
+            d_angle = tf.math.atan2((1-ETA)*tf.math.sin(d_angle) + ETA*sin_A, (1-ETA)*tf.math.cos(d_angle) + ETA*cos_A)
 
             d_angle = d_angle - A
             d_angle = tf.where(d_angle>pi, d_angle-2*pi, d_angle)
