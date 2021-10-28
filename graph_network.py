@@ -41,7 +41,7 @@ def build_mlp(hidden_size: int, num_hidden_layers: int, output_size: int, activa
 
 
 class EncodeProcessDecode(snt.Module):
-  """Encode-Process-Decode function approximator for learnable simulator."""
+    """Encode-Process-Decode function approximator for learnable simulator."""
 
     def __init__(self,latent_size: int, mlp_hidden_size: int, mlp_num_hidden_layers: int, num_message_passing_steps: int, output_size: int, domain_size: float,
                       reducer: Reducer = tf.math.unsorted_segment_sum, name: str = "EncodeProcessDecode"):
@@ -74,7 +74,7 @@ class EncodeProcessDecode(snt.Module):
         """Forward pass of the learnable dynamics model."""
 
         # Preprocess the microstate.
-        input_graph = self.__preprocess_data(X,V)
+        input_graph = self._preprocess_data(X,V)
 
         # Encode the input_graph.
         latent_graph_0 = self._encode(input_graph)
@@ -94,13 +94,13 @@ class EncodeProcessDecode(snt.Module):
 
         Xx = tf.expand_dims(X[...,0],-1)
         dx = -Xx + tf.linalg.matrix_transpose(Xx)
-        dx = tf.where(dx>0.5*L, dx-L, dx)
-        dx = tf.where(dx<-0.5*L, dx+L, dx)
+        dx = tf.where(dx>0.5*self._L, dx-self._L, dx)
+        dx = tf.where(dx<-0.5*self._L, dx+self._L, dx)
 
         Xy = tf.expand_dims(X[...,1],-1)
         dy = -Xy + tf.linalg.matrix_transpose(Xy)
-        dy = tf.where(dy>0.5*L, dy-L, dy)
-        dy = tf.where(dy<-0.5*L, dy+L, dy)
+        dy = tf.where(dy>0.5*self._L, dy-self._L, dy)
+        dy = tf.where(dy<-0.5*self._L, dy+self._L, dy)
 
         Vx = tf.expand_dims(V[...,0],-1)
         dvx = -Vx + tf.linalg.matrix_transpose(Vx)
@@ -127,7 +127,7 @@ class EncodeProcessDecode(snt.Module):
         receivers = tf.squeeze(tf.slice(sender_recv_list,(0,2),size=(-1,1))) + tf.squeeze(tf.slice(sender_recv_list,(0,0),size=(-1,1)))*tf.shape(adj_matrix,out_type=tf.int64)[-1]
 
 
-        edge_distance = tf.expand_dims(tf.gather_nd(dist/L,sender_recv_list),-1)
+        edge_distance = tf.expand_dims(tf.gather_nd(dist/self._L,sender_recv_list),-1)
         edge_x_distance =  tf.expand_dims(tf.gather_nd(tf.math.cos(rel_angle_to_neigh),sender_recv_list),-1)  # neigbour position relative to sender heading
         edge_y_distance =  tf.expand_dims(tf.gather_nd(tf.math.sin(rel_angle_to_neigh),sender_recv_list),-1)  # neigbour position relative to sender heading
 
@@ -144,9 +144,9 @@ class EncodeProcessDecode(snt.Module):
 
         nodes = tf.concat([node_positions,node_velocities],axis=-1)
 
-        gn = graphs.GraphsTuple(nodes=nodes,edges=edges,globals=g_globals,receivers=receivers,senders=senders,n_node=n_node,n_edge=n_edge)
+        input_graphs = gn.graphs.GraphsTuple(nodes=nodes,edges=edges,globals=g_globals,receivers=receivers,senders=senders,n_node=n_node,n_edge=n_edge)
 
-        return gn  
+        return input_graphs  
 
     def _networks_builder(self):
         """Builds the networks."""
