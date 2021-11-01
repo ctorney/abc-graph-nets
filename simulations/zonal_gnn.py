@@ -25,7 +25,7 @@ def get_record(group_id,timestep,parameter_vector,pos,vel):
 
 
 class zonal_model:
-    def __init__(self, N, timesteps, discard, repeat, L, dt, save_interval,train_directory='train_datasets', valid_directory='valid_datasets', disable_progress=False):
+    def __init__(self, N, timesteps, discard, repeat, L, dt, save_interval,train_directory='train_datasets', valid_directory='valid_datasets', disable_progress=False, save_micro=False):
         self.N = N
         self.timesteps = timesteps
         self.discard = discard
@@ -34,29 +34,35 @@ class zonal_model:
         self.dt = dt
         self.save_interval = save_interval
         
-        self.micro_state = np.zeros((self.B, (self.timesteps - self.discard)//self.save_interval, N, 4))
+        self.micro_state = np.zeros((self.B, (self.timesteps - self.discard)//self.save_interval, N, 4),dtype=np.float32)
 
         self.sim_counter=0
 
-        if not os.path.exists(train_directory):
-            os.makedirs(train_directory)
-
-        if not os.path.exists(valid_directory):
-            os.makedirs(valid_directory)
-
-        self.train_directory = train_directory
-        self.valid_directory = valid_directory
+        
 
         # turn progress bar on or off
         self.disable_progress = disable_progress
 
         self.valid_fraction = 0.1
         
+        # flag to turn on saving data to tfrecords
+        self.save_micro = save_micro
+        
+        if self.save_micro: 
+            if not os.path.exists(train_directory):
+                os.makedirs(train_directory)
+
+            if not os.path.exists(valid_directory):
+                os.makedirs(valid_directory)
+
+            self.train_directory = train_directory
+            self.valid_directory = valid_directory
+        
     def initialise_state(self):
 
-        self.positions = tf.random.uniform((self.B,self.N,2),0.5*self.L, 0.5*self.L+20) #0,self.L)
+        self.positions = tf.random.uniform((self.B,self.N,2),0.5*self.L, 0.5*self.L+20,dtype=tf.float32) #0,self.L)
         #self.positions = tf.random.uniform((self.B,self.N,2),0, self.L) 
-        self.angles = tf.random.uniform((self.B,self.N,1), 0, 2*pi) #
+        self.angles = tf.random.uniform((self.B,self.N,1), 0, 2*pi,dtype=tf.float32) #
         
 
 
@@ -64,11 +70,12 @@ class zonal_model:
 
         Rr, Ra, Ro, va = params
         
-        record_file = self.train_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
-        self.writer = tf.io.TFRecordWriter(record_file) 
-        
-        valid_file = self.valid_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
-        self.validwriter = tf.io.TFRecordWriter(valid_file) 
+        if self.save_micro: 
+            record_file = self.train_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
+            self.writer = tf.io.TFRecordWriter(record_file) 
+
+            valid_file = self.valid_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
+            self.validwriter = tf.io.TFRecordWriter(valid_file) 
         
         # tensorflow function to run an update step
         @tf.function
@@ -189,13 +196,15 @@ class zonal_model:
                 if i%self.save_interval==0:
                     # store in an array in case we want to visualise
                     self.micro_state[:,counter,:,0:2] = self.positions.numpy()
-                    self.micro_state[:,counter,:,2:3] = np.cos(self.angles.numpy())
-                    self.micro_state[:,counter,:,3:4] = np.sin(self.angles.numpy())
+                    self.micro_state[:,counter,:,2:3] = tf.math.cos(self.angles).numpy()
+                    self.micro_state[:,counter,:,3:4] = tf.math.sin(self.angles).numpy()
                         
                     counter = counter + 1
-                    self.save_tf_record(counter, params)
+                    if self.save_micro: 
+                        self.save_tf_record(counter, params)
 
-        self.writer.close()
+        if self.save_micro: 
+            self.writer.close()
         self.sim_counter+=1
         return 
 
