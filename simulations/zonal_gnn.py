@@ -68,7 +68,7 @@ class zonal_model:
 
     def run_sim(self, *params):
 
-        Rr, Ra, Ro, va = params
+        Rr, Ro, Ra, va = params
         
         if self.save_micro: 
             record_file = self.train_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
@@ -117,12 +117,16 @@ class zonal_model:
             rep_y = tf.reduce_sum(rep_y,axis=2)
 
             # alignment 
-            align_x = tf.where(dist<=Ro, cos_A, tf.zeros_like(cos_A))
+            align_x = tf.where(dist<=(Ro+Rr), cos_A, tf.zeros_like(cos_A))
+            align_x = tf.where(dist>Rr, align_x, tf.zeros_like(align_x))
+
             align_x = tf.where(rel_angle_to_neigh<0.5*va, align_x, tf.zeros_like(align_x))
             align_x = tf.where(rel_angle_to_neigh>-0.5*va, align_x, tf.zeros_like(align_x))
             align_x = tf.reduce_sum(align_x,axis=1)
             
-            align_y = tf.where(dist<=Ro, sin_A, tf.zeros_like(sin_A))
+            align_y = tf.where(dist<=(Ro+Rr), sin_A, tf.zeros_like(sin_A))
+            align_y = tf.where(dist>Rr, align_y, tf.zeros_like(align_y))
+
             align_y = tf.where(rel_angle_to_neigh<0.5*va, align_y, tf.zeros_like(align_y))
             align_y = tf.where(rel_angle_to_neigh>-0.5*va, align_y, tf.zeros_like(align_y))
             align_y = tf.reduce_sum(align_y,axis=1)
@@ -132,12 +136,14 @@ class zonal_model:
             align_y = tf.math.divide_no_nan(align_y,al_norm)
 
             # attractive interactions
-            attr_x = tf.where(dist<=Ra, dx, tf.zeros_like(dx))
+            attr_x = tf.where(dist<=(Ro+Ra+Rr), dx, tf.zeros_like(dx))
+            attr_x = tf.where(dist>(Ro+Rr), attr_x, tf.zeros_like(attr_x))
             attr_x = tf.where(rel_angle_to_neigh<0.5*va, attr_x, tf.zeros_like(attr_x))
             attr_x = tf.where(rel_angle_to_neigh>-0.5*va, attr_x, tf.zeros_like(attr_x))
             attr_x = tf.reduce_sum(attr_x,axis=2)
 
-            attr_y = tf.where(dist<=Ra, dy, tf.zeros_like(dy))
+            attr_y = tf.where(dist<=(Ro+Ra+Rr), dy, tf.zeros_like(dy))
+            attr_y = tf.where(dist>(Ro+Rr), attr_y, tf.zeros_like(attr_y))
             attr_y = tf.where(rel_angle_to_neigh<0.5*va, attr_y, tf.zeros_like(attr_y))
             attr_y = tf.where(rel_angle_to_neigh>-0.5*va, attr_y, tf.zeros_like(attr_y))
             attr_y = tf.reduce_sum(attr_y,axis=2)
@@ -210,6 +216,8 @@ class zonal_model:
 
     def save_tf_record(self, counter, params):
 
+        in_params = (params[0],params[0]+params[1],params[0]+params[1]+params[2],params[3])
+        
         A = self.angles
 
         cos_A = tf.math.cos(A)
@@ -221,7 +229,7 @@ class zonal_model:
             pos =  tf.io.serialize_tensor(self.positions[b])
             vel =  tf.io.serialize_tensor(velocities[b])
 
-            tf_record = get_record(b,counter,params,pos,vel)
+            tf_record = get_record(b,counter,in_params,pos,vel)
             if b> self.B*self.valid_fraction:
                 self.writer.write(tf_record.SerializeToString())
             else:

@@ -67,8 +67,8 @@ def am_sampler(likelihood_function, ndim, init_p, prior, sigma, n_samples, burn_
     # create random numbers outside the for loop
     #innov = np.random.normal(loc=0, scale=sigma, size=(iters,ndim))
     u = np.random.rand(iters) 
-    #for i in tqdm(range(iters)): 
-    for i in range(iters): 
+    for i in tqdm(range(iters)): 
+    #for i in range(iters): 
         # new location for z
         #cand = z + innov[i]
         cand = generate_AM_candidate(z,M2,i,cov_0)

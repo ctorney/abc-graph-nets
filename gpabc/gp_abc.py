@@ -20,11 +20,11 @@ class abcGP:
         self.sobel_range = sobel_range
         self.input_dim = input_dim
         self.n_points = n_points
-        self.l_init = sobel_range/n_points
-        self.max_l = np.max(sobel_range) if max_l is None else max_l
-        self.min_l = np.min(sobel_range/n_points) if min_l is None else min_l
+        self.l_init = sobel_range/((n_points-1)**(1./input_dim))
+        #self.max_l = np.max(sobel_range) if max_l is None else max_l
+        #self.min_l = np.min(sobel_range/n_points) if min_l is None else min_l
         self.T = T
-        nss = 5
+        #nss = 5
         self.sobel_points = i4_sobol_generate(self.input_dim,self.n_points)
         self.skip = self.n_points
 
@@ -36,7 +36,7 @@ class abcGP:
         self.gp = []
         self.sim_output = [None]*self.n_points
         self.likelihood = np.full(self.n_points, np.nan)
-        self.reg_coeff = np.random.normal(size=(self.input_dim,nss))
+        #self.reg_coeff = np.random.normal(size=(self.input_dim,nss))
 
     def runWave(self):
         # run a GP wave
@@ -48,7 +48,7 @@ class abcGP:
             if not np.isnan(self.likelihood[i]):
                 continue
             self.sim_output[i] = self.simulator(p)
-            self.likelihood[i] = self.likelihood_function(self.sim_output[i],self.reg_coeff)
+            self.likelihood[i] = self.likelihood_function(self.sim_output[i])#,self.reg_coeff)
 
 
 
@@ -68,6 +68,19 @@ class abcGP:
 
         #gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=5) #9   
         m = GPy.models.GPRegression(X,Y,kernel)
+        
+        # calculate the resolution of points per dimension
+        points_per_dim = ((len(self.gp)+1)*self.n_points)**(1.0/self.input_dim)
+
+
+        # constrain the lengthscale so that the minimum L is greater than the approx distance between points
+        for i in range(self.input_dim):
+            minL = self.sobel_range[i]/points_per_dim
+            maxL = self.sobel_range[i]
+
+            m.rbf.lengthscale[[i]].constrain_bounded(minL,maxL) 
+        
+        
         m.optimize_restarts(num_restarts = 5,verbose=False)
         ## now 2D GP  
         #gp.fit(X,Y)
