@@ -37,7 +37,8 @@ Reducer = Callable[[tf.Tensor, tf.Tensor, tf.Tensor], tf.Tensor]
 
 def build_mlp(hidden_size: int, num_hidden_layers: int, output_size: int, activation=tf.nn.relu,activate_final=False) -> snt.Module:
     """Builds an MLP."""
-    return snt.nets.MLP(output_sizes=[hidden_size] * num_hidden_layers + [output_size],activation=activation,activate_final=activate_final)
+    #,w_init = snt.initializers.RandomNormal()
+    return snt.nets.MLP(output_sizes=[hidden_size] * num_hidden_layers + [output_size], activation=activation,activate_final=activate_final)
 
 
 class EncodeProcessDecode(snt.Module):
@@ -70,11 +71,11 @@ class EncodeProcessDecode(snt.Module):
 
         self._networks_builder()
 
-    def __call__(self, X, V) -> tf.Tensor:
+    def __call__(self, X, V, A) -> tf.Tensor:
         """Forward pass of the learnable dynamics model."""
 
         # Preprocess the microstate.
-        input_graph = self._preprocess_data(X,V)
+        input_graph = self._preprocess_data(X,V,A)
 
         # Encode the input_graph.
         latent_graph_0 = self._encode(input_graph)
@@ -83,11 +84,11 @@ class EncodeProcessDecode(snt.Module):
         latent_graph_m = self._process(latent_graph_0)
         decode_graph_m = self._decode(latent_graph_m)
         # Decode from the last latent graph.
-        return tf.nn.sigmoid(self._output_transform(decode_graph_m.globals))
+        return tf.nn.softplus(self._output_transform(decode_graph_m.globals))
 
   
     @tf.function
-    def _preprocess_data(self, X, V):
+    def _preprocess_data(self, X, V, A):
     
         # node features xpos, ypos, xvel, yvel
         # edge features distance, rel angle to receiver
@@ -108,20 +109,20 @@ class EncodeProcessDecode(snt.Module):
         Vy = tf.expand_dims(V[...,1],-1)
         dvy = -Vy + tf.linalg.matrix_transpose(Vy)
 
-        A = tf.expand_dims(tf.math.atan2(V[...,1],V[...,0]),-1)
+        angles = tf.expand_dims(tf.math.atan2(V[...,1],V[...,0]),-1)
         angle_to_neigh = tf.math.atan2(dy, dx)
 
-        rel_angle_to_neigh = angle_to_neigh - A
+        rel_angle_to_neigh = angle_to_neigh - angles
 
         dist = tf.math.sqrt(tf.square(dx)+tf.square(dy))
         #print(tf.reduce_mean(dist,axis=[1,2]))
-        interaction_radius = tf.reduce_mean(dist,axis=[1,2],keepdims=True)
+        interaction_radius = 25.0# tf.reduce_mean(dist,axis=[1,2],keepdims=True)
         adj_matrix = tf.where(dist<interaction_radius, tf.ones_like(dist,dtype=tf.int32), tf.zeros_like(dist,dtype=tf.int32))
         adj_matrix = tf.linalg.set_diag(adj_matrix, tf.zeros(tf.shape(adj_matrix)[:2],dtype=tf.int32))
         sender_recv_list = tf.where(adj_matrix)
         n_edge = tf.reduce_sum(adj_matrix, axis=[1,2])
         n_node = tf.ones_like(n_edge)*tf.shape(adj_matrix)[-1]
-        g_globals = tf.zeros_like(n_edge) 
+        #g_globals = tf.zeros_like(n_edge,dtype=tf.float32) 
 
         senders =tf.squeeze(tf.slice(sender_recv_list,(0,1),size=(-1,1)))+ tf.squeeze(tf.slice(sender_recv_list,(0,0),size=(-1,1)))*tf.shape(adj_matrix,out_type=tf.int64)[-1]
         receivers = tf.squeeze(tf.slice(sender_recv_list,(0,2),size=(-1,1))) + tf.squeeze(tf.slice(sender_recv_list,(0,0),size=(-1,1)))*tf.shape(adj_matrix,out_type=tf.int64)[-1]
@@ -141,11 +142,13 @@ class EncodeProcessDecode(snt.Module):
         node_positions = tf.reshape(X,(-1,2))
         node_positions = (node_positions - (self._L/2.))/self._L
         node_velocities = tf.reshape(V,(-1,2))
+        node_accelerations = tf.reshape(A,(-1,2))
 
-        nodes = tf.concat([node_positions,node_velocities],axis=-1)
+        nodes = tf.concat([node_positions,node_velocities,node_accelerations],axis=-1)
 
-        input_graphs = gn.graphs.GraphsTuple(nodes=nodes,edges=edges,globals=g_globals,receivers=receivers,senders=senders,n_node=n_node,n_edge=n_edge)
+        input_graphs = gn.graphs.GraphsTuple(nodes=nodes,edges=edges,globals=None,receivers=receivers,senders=senders,n_node=n_node,n_edge=n_edge)
 
+        input_graphs = utils_tf.set_zero_global_features(input_graphs,self._output_size)
         return input_graphs  
 
     def _networks_builder(self):
@@ -165,8 +168,11 @@ class EncodeProcessDecode(snt.Module):
         # it also outputs the messages as updated edge latent features.
         self._processor_networks = []
         for _ in range(self._num_message_passing_steps):
-            self._processor_networks.append(gn.modules.InteractionNetwork(edge_model_fn=build_mlp_with_layer_norm,
-                                                      node_model_fn=build_mlp_with_layer_norm, reducer=self._reducer))
+            self._processor_networks.append(gn.modules.GraphNetwork(edge_model_fn=build_mlp_with_layer_norm,
+                                                                    node_model_fn=build_mlp_with_layer_norm, 
+                                                                    global_model_fn=build_mlp_with_layer_norm, 
+                                                                    reducer=tf.math.unsorted_segment_mean, 
+                                                                    node_block_opt=dict(use_sent_edges=True)))
         
         # The decoder MLP decodes node latent features into the output size.
         decoder_kwargs = dict(global_model_fn=build_mlp_with_layer_norm)
@@ -194,9 +200,9 @@ class EncodeProcessDecode(snt.Module):
             latent_graph_prev_k = latent_graph_k
 
         latent_graph_m = latent_graph_k
-        reducer = tf.math.unsorted_segment_sum
+        #reducer = tf.math.unsorted_segment_mean
 
-        latent_graph_m = latent_graph_m.replace(globals=gn.blocks.NodesToGlobalsAggregator(reducer=reducer)(latent_graph_m))
+        #latent_graph_m = latent_graph_m.replace(globals=gn.blocks.NodesToGlobalsAggregator(reducer=reducer)(latent_graph_m))
 
         return latent_graph_m
 
