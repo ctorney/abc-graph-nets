@@ -120,18 +120,18 @@ class zonal_model:
             rep_x = tf.where(dist<=Rr, -dx, tf.zeros_like(dx))
             rep_x = tf.where(rel_angle_to_neigh<0.5*va, rep_x, tf.zeros_like(rep_x))
             rep_x = tf.where(rel_angle_to_neigh>-0.5*va, rep_x, tf.zeros_like(rep_x))
-            #rep_x = tf.math.divide_no_nan(rep_x,tf.math.square(dist))
-            rep_x = tf.reduce_sum(rep_x,axis=2)
+            rep_x = tf.math.divide_no_nan(rep_x,tf.math.square(dist))
+            rep_x = tf.reduce_sum(rep_x,axis=1)
 
             rep_y = tf.where(dist<=Rr, -dy, tf.zeros_like(dy))
             rep_y = tf.where(rel_angle_to_neigh<0.5*va, rep_y, tf.zeros_like(rep_y))
             rep_y = tf.where(rel_angle_to_neigh>-0.5*va, rep_y, tf.zeros_like(rep_y))
-            #rep_y = tf.math.divide_no_nan(rep_y,tf.math.square(dist))
-            rep_y = tf.reduce_sum(rep_y,axis=2)
+            rep_y = tf.math.divide_no_nan(rep_y,tf.math.square(dist))
+            rep_y = tf.reduce_sum(rep_y,axis=1)
 
-            rep_norm = tf.math.sqrt(rep_x**2+rep_y**2)
-            rep_x = tf.math.divide_no_nan(rep_x,rep_norm)
-            rep_y = tf.math.divide_no_nan(rep_y,rep_norm)
+#             rep_norm = tf.math.sqrt(rep_x**2+rep_y**2)
+#             rep_x = tf.math.divide_no_nan(rep_x,rep_norm)
+#             rep_y = tf.math.divide_no_nan(rep_y,rep_norm)
 
             # alignment 
             align_x = tf.where(dist<=Ro, cos_A, tf.zeros_like(cos_A))
@@ -170,35 +170,60 @@ class zonal_model:
             attr_y = tf.math.divide_no_nan(attr_y,at_norm)
 
             # combine angles and convert to desired angle change
-            social_x = tf.where(rep_norm>1e-6,rep_x, align_x + attr_x)
-            social_y = tf.where(rep_norm>1e-6,rep_y, align_y + attr_y)
-
-            d_angle = tf.math.atan2(social_y,social_x)
-            d_angle = tf.expand_dims(d_angle,-1)
-
+            #social_x = tf.where(rep_norm>1e-6,rep_x, align_x + attr_x)
+            #social_y = tf.where(rep_norm>1e-6,rep_y, align_y + attr_y)
             
-            d_angle = tf.math.atan2((1-ETA)*tf.math.sin(d_angle) + ETA*sin_A, (1-ETA)*tf.math.cos(d_angle) + ETA*cos_A)
+            # combine angles and convert to desired angle change
+            social_x = rep_x + align_x + attr_x
+            social_y = rep_y + align_y + attr_y
+            
+            social_norm = tf.math.sqrt(social_x**2+social_y**2)
+            social_x = tf.math.divide_no_nan(social_x,social_norm)
+            social_y = tf.math.divide_no_nan(social_y,social_norm)
 
-            d_angle = d_angle - angles
-            d_angle = tf.where(d_angle>pi, d_angle-2*pi, d_angle)
-            d_angle = tf.where(d_angle<-pi, d_angle+2*pi, d_angle)
+            #d_angle = tf.math.atan2(social_y,social_x)
+            #d_angle = social_y + social_x
 
+            social_x = tf.expand_dims(social_x,-1)
+            social_y = tf.expand_dims(social_y,-1)
 
-            # add perception noise
-            #noise = tf.random.normal(shape=(self.B,self.N,1),mean=0,stddev=NOISE*(self.dt**0.5))
-            #d_angle = d_angle + noise
-            
-            # restrict to maximum turning angle
-            #d_angle = tf.where(tf.math.abs(d_angle)>eta*self.dt, tf.math.sign(d_angle)*eta*self.dt, d_angle)
-            
-            # rotate headings
-            angles = angles + d_angle
-            
-            # update acceleration 
-            A = tf.concat([tf.cos(d_angle),tf.sin(d_angle)],axis=-1)
-            
+            nvx = (1-ETA)*social_x + ETA*cos_A
+            nvy = (1-ETA)*social_y + ETA*sin_A
+
+            v_norm = tf.math.sqrt(nvx**2+nvy**2)
+            nvx = tf.math.divide_no_nan(nvx,v_norm)
+            nvy = tf.math.divide_no_nan(nvy,v_norm)
+
+            #d_angle = tf.math.atan2((1-ETA)*tf.math.sin(d_angle) + ETA*sin_A, (1-ETA)*tf.math.cos(d_angle) + ETA*cos_A)
+
             # update velocity
-            V = self.dt*SPEED*tf.concat([tf.cos(angles),tf.sin(angles)],axis=-1)
+            V = self.dt*SPEED*tf.concat([nvx,nvy],axis=-1)
+#             d_angle = tf.math.atan2(social_y,social_x)
+#             d_angle = tf.expand_dims(d_angle,-1)
+
+            
+#             d_angle = tf.math.atan2((1-ETA)*tf.math.sin(d_angle) + ETA*sin_A, (1-ETA)*tf.math.cos(d_angle) + ETA*cos_A)
+
+#             #d_angle = d_angle - angles
+#             #d_angle = tf.where(d_angle>pi, d_angle-2*pi, d_angle)
+#             #d_angle = tf.where(d_angle<-pi, d_angle+2*pi, d_angle)
+
+
+#             # add perception noise
+#             #noise = tf.random.normal(shape=(self.B,self.N,1),mean=0,stddev=NOISE*(self.dt**0.5))
+#             #d_angle = d_angle + noise
+            
+#             # restrict to maximum turning angle
+#             #d_angle = tf.where(tf.math.abs(d_angle)>eta*self.dt, tf.math.sign(d_angle)*eta*self.dt, d_angle)
+            
+#             # rotate headings
+#             #angles = angles + d_angle
+            
+#             # update acceleration 
+#             A = tf.concat([tf.cos(d_angle),tf.sin(d_angle)],axis=-1)
+            
+#             # update velocity
+#             V = self.dt*SPEED*tf.concat([tf.cos(d_angle),tf.sin(d_angle)],axis=-1)
             
             # update positions
             X += V
@@ -213,13 +238,13 @@ class zonal_model:
             X = tf.where(X>self.L, X-self.L, X)
             X = tf.where(X<0, X+self.L, X)
 
-            return X, V, A
+            return X, V
             
         self.initialise_state()
 
         counter=0
         for i in tqdm(range(self.timesteps),disable=self.disable_progress):
-            positions, velocities, self.accelerations = update_tf(self.positions,  self.velocities)
+            positions, velocities = update_tf(self.positions,  self.velocities)
             if i>=self.discard:
                 if i%self.save_interval==0:
                     # store in an array in case we want to visualise
@@ -235,6 +260,7 @@ class zonal_model:
             self.velocities = velocities
         if self.save_micro: 
             self.writer.close()
+            self.validwriter.close()
         self.sim_counter+=1
         return 
 
