@@ -78,7 +78,7 @@ def _parse_keras(x):
     return output
 
 
-DOMAIN_SIZE=200.
+DOMAIN_SIZE=500.
 MAX_RADIUS=25.
 
 max_params = np.array([25.0,25.0],dtype=np.float32)
@@ -183,7 +183,7 @@ n_out = 2
 n_feat_node=4
 n_feat_edge=5
 
-MLP_SIZE=16
+MLP_SIZE=32
 
 X_in = Input(shape=(n_feat_node,))
 A_in = Input(shape=(None,), sparse=True)
@@ -201,21 +201,21 @@ X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tan
 X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
 
 X = Dense(MLP_SIZE, activation="linear",use_bias=False)(X)
-E = Dense(MLP_SIZE, activation="linear",use_bias=False)(E)
+#E = Dense(MLP_SIZE, activation="linear",use_bias=False)(E)
 
 
 X = Concatenate()([X, X_in])
-E = Concatenate()([E, E_in])
+#E = Concatenate()([E, E_in])
 
 Xs = GlobalAttnSumPool()([X, I_in])
 Xm = GlobalMaxPool()([X, I_in])
 Xa = GlobalAvgPool()([X, I_in])
 
-Es = GlobalAttnSumPool()([E, IE_in])
-Em = GlobalMaxPool()([E, IE_in])
-Ea = GlobalAvgPool()([E, IE_in])
+#Es = GlobalAttnSumPool()([E, IE_in])
+#Em = GlobalMaxPool()([E, IE_in])
+#Ea = GlobalAvgPool()([E, IE_in])
 
-X = Concatenate()([Xs,Xm,Xa, Es,Em,Ea])
+X = Concatenate()([Xs,Xm,Xa])#, Es,Em,Ea])
 
 X = Dense(MLP_SIZE, activation="linear",use_bias=False)(X)
 
@@ -235,7 +235,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath='gnn/weights.{
 
 stop_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss",
                                                     min_delta=0,
-                                                    patience=2,
+                                                    patience=5,
                                                     verbose=0,
                                                     mode="auto",
                                                     restore_best_weights=True)

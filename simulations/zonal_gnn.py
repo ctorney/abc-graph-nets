@@ -120,18 +120,18 @@ class zonal_model:
             rep_x = tf.where(dist<=Rr, -dx, tf.zeros_like(dx))
             rep_x = tf.where(rel_angle_to_neigh<0.5*va, rep_x, tf.zeros_like(rep_x))
             rep_x = tf.where(rel_angle_to_neigh>-0.5*va, rep_x, tf.zeros_like(rep_x))
-            rep_x = tf.math.divide_no_nan(rep_x,tf.math.square(dist))
-            rep_x = tf.reduce_sum(rep_x,axis=1)
+            #rep_x = tf.math.divide_no_nan(rep_x,tf.math.square(dist))
+            rep_x = tf.reduce_sum(rep_x,axis=2)
 
             rep_y = tf.where(dist<=Rr, -dy, tf.zeros_like(dy))
             rep_y = tf.where(rel_angle_to_neigh<0.5*va, rep_y, tf.zeros_like(rep_y))
             rep_y = tf.where(rel_angle_to_neigh>-0.5*va, rep_y, tf.zeros_like(rep_y))
-            rep_y = tf.math.divide_no_nan(rep_y,tf.math.square(dist))
-            rep_y = tf.reduce_sum(rep_y,axis=1)
+            #rep_y = tf.math.divide_no_nan(rep_y,tf.math.square(dist))
+            rep_y = tf.reduce_sum(rep_y,axis=2)
 
-#             rep_norm = tf.math.sqrt(rep_x**2+rep_y**2)
-#             rep_x = tf.math.divide_no_nan(rep_x,rep_norm)
-#             rep_y = tf.math.divide_no_nan(rep_y,rep_norm)
+            rep_norm = tf.math.sqrt(rep_x**2+rep_y**2)
+            rep_x = tf.math.divide_no_nan(rep_x,rep_norm)
+            rep_y = tf.math.divide_no_nan(rep_y,rep_norm)
 
             # alignment 
             align_x = tf.where(dist<=Ro, cos_A, tf.zeros_like(cos_A))
@@ -170,12 +170,12 @@ class zonal_model:
             attr_y = tf.math.divide_no_nan(attr_y,at_norm)
 
             # combine angles and convert to desired angle change
-            #social_x = tf.where(rep_norm>1e-6,rep_x, align_x + attr_x)
-            #social_y = tf.where(rep_norm>1e-6,rep_y, align_y + attr_y)
+            social_x = tf.where(rep_norm>1e-6,rep_x, align_x + attr_x)
+            social_y = tf.where(rep_norm>1e-6,rep_y, align_y + attr_y)
             
             # combine angles and convert to desired angle change
-            social_x = rep_x + align_x + attr_x
-            social_y = rep_y + align_y + attr_y
+            #social_x = rep_x + align_x + attr_x
+            #social_y = rep_y + align_y + attr_y
             
             social_norm = tf.math.sqrt(social_x**2+social_y**2)
             social_x = tf.math.divide_no_nan(social_x,social_norm)
