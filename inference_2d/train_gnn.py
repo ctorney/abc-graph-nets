@@ -227,6 +227,8 @@ gnn_model = Model(inputs=[X_in, A_in, E_in, I_in, IE_in], outputs=output)
 learning_rate = 1e-3# Learning rate
 gnn_model.compile(optimizer=Adam(learning_rate), loss="mse")
 
+if not os.path.exists('gnn'):
+    os.makedirs('gnn')
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath='gnn/weights.{epoch:02d}-{val_loss:.2f}.hdf5',
                                                             save_weights_only=True,
                                                             monitor='val_loss',
@@ -253,8 +255,8 @@ gnn_model.save('gnn/gnn_model')
 #************************************
 
 
-    
-    
+
+
 pred_list = []
 true_values = []
 for databatch in tqdm(parsed_valid_dataset):
