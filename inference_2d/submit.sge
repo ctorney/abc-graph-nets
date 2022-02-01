@@ -1,0 +1,14 @@
+#! /bin/bash
+
+#$ -q college.q@@college-gpu	# Use the college queue and the GPU resource group
+#$ -m beas 			            # Events on which to send a status update
+#$ -l mem_tokens=1.0G 		    # Request for 1.0 GB of memory per task 
+#$ -cwd                 	    # Run in current working directory
+#$ -j no  			            # Join output and error files
+
+# activate the conda environment
+source ~/anaconda3/bin/activate tf2.6
+
+# run the python file
+python make_training_data.py
+python train_gnn.py
