@@ -2,7 +2,6 @@ import os, sys
 import numpy as np
 from math import *
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
 import tensorflow as tf
 
@@ -10,18 +9,21 @@ import tensorflow as tf
 sys.path.append('..')
 from simulations import zonal_gnn
 
-from sobol_seq import i4_sobol_generate
+
+from scipy.stats import qmc
 
 
 INPUT_DIM = 2
-N_POINTS = 2000
+N_POINTS = 10#2000
 
 
 REP = 1.0
 VA = 1.5*pi
 
 params_max = np.array([25.0,25.0])
-sobel_points = i4_sobol_generate(INPUT_DIM,N_POINTS)
+sampler = qmc.Sobol(d=INPUT_DIM, scramble=False)
+sampler.fast_forward(1) # skip the first point at origin
+sobel_points = sampler.random(N_POINTS)
 param_values = np.zeros_like(sobel_points)
 
 
