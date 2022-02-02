@@ -10,25 +10,27 @@ from sklearn.metrics import r2_score
 
 import GPy
 from math import *
-from sobol_seq import i4_sobol_generate
+from scipy.stats import qmc
 from tqdm import tqdm
 
 class abcGP:
-    def __init__(self, sobel_start, sobel_range, input_dim, n_points,T, simulator, likelihood_function, max_l=None, min_l=None):
+    def __init__(self, sobol_start, sobol_range, input_dim, n_points,T, simulator, likelihood_function, max_l=None, min_l=None):
 
-        self.sobel_start = sobel_start
-        self.sobel_range = sobel_range
+        self.sobol_start = sobol_start
+        self.sobol_range = sobol_range
         self.input_dim = input_dim
         self.n_points = n_points
-        self.l_init = sobel_range/((n_points-1)**(1./input_dim))
-        #self.max_l = np.max(sobel_range) if max_l is None else max_l
-        #self.min_l = np.min(sobel_range/n_points) if min_l is None else min_l
+        self.l_init = sobol_range/((n_points-1)**(1./input_dim))
+        #self.max_l = np.max(sobol_range) if max_l is None else max_l
+        #self.min_l = np.min(sobol_range/n_points) if min_l is None else min_l
         self.T = T
         #nss = 5
-        self.sobel_points = i4_sobol_generate(self.input_dim,self.n_points)
+        self.sobol_generator = qmc.Sobol(d=self.input_dim, scramble=False)
+        self.sobol_generator.fast_forward(1) # skip the first point at origin
+        self.sobol_points = self.sobol_generator.random(self.n_points)
         self.skip = self.n_points
 
-        self.sobel_points = self.sobel_start + self.sobel_range*self.sobel_points
+        self.sobol_points = self.sobol_start + self.sobol_range*self.sobol_points
         self.simulator = simulator
 
         self.likelihood_function = likelihood_function
@@ -41,7 +43,7 @@ class abcGP:
     def runWave(self):
         # run a GP wave
 
-        for i, p in tqdm(enumerate(self.sobel_points)):
+        for i, p in tqdm(enumerate(self.sobol_points)):
 
             # points have a nan likelihood if they haven't been evaluated
             # so we skip points that are finite to include previous sims in the GP
@@ -55,7 +57,7 @@ class abcGP:
         # fit gp
         Y = self.likelihood[np.isfinite(self.likelihood)]
 
-        X = self.sobel_points[np.isfinite(self.likelihood)]
+        X = self.sobol_points[np.isfinite(self.likelihood)]
         Y_mean = np.mean(Y)
         Y_std = np.std(Y)+1e-3
 
@@ -75,8 +77,8 @@ class abcGP:
 
         # constrain the lengthscale so that the minimum L is greater than the approx distance between points
         for i in range(self.input_dim):
-            minL = self.sobel_range[i]/points_per_dim
-            maxL = self.sobel_range[i]
+            minL = self.sobol_range[i]/points_per_dim
+            maxL = self.sobol_range[i]
 
             m.rbf.lengthscale[[i]].constrain_bounded(minL,maxL) 
         
@@ -93,32 +95,32 @@ class abcGP:
         #self.gp.append([gp,Y_mean,Y_std,Y_max])
 
 
-        all_sobel_points = i4_sobol_generate(self.input_dim,self.n_points,skip=self.skip)
+        all_sobol_points = self.sobol_generator.random(self.n_points)
         self.skip += self.n_points
-        all_sobel_points = self.sobel_start + self.sobel_range*all_sobel_points
-        plausible_indexes = self.calculate_plausibility(all_sobel_points)
-        all_sobel_points = all_sobel_points[plausible_indexes]
+        all_sobol_points = self.sobol_start + self.sobol_range*all_sobol_points
+        plausible_indexes = self.calculate_plausibility(all_sobol_points)
+        all_sobol_points = all_sobol_points[plausible_indexes]
         # add new points
-        while all_sobel_points.shape[0]<self.n_points:
-            #new_sobel_points = i4_sobol_generate(self.input_dim,self.n_points,skip=self.skip)
+        while all_sobol_points.shape[0]<self.n_points:
+            #new_sobol_points = i4_sobol_generate(self.input_dim,self.n_points,skip=self.skip)
             #self.skip += self.n_points
-            new_sobel_points = i4_sobol_generate(self.input_dim,1,skip=self.skip)
+            new_sobol_points = self.sobol_generator.random(1)
             self.skip += 1
-            new_sobel_points = self.sobel_start + self.sobel_range*new_sobel_points
-            plausible_indexes = self.calculate_plausibility(new_sobel_points)
-            new_sobel_points = new_sobel_points[plausible_indexes]
-            all_sobel_points= np.vstack((all_sobel_points,new_sobel_points))
+            new_sobol_points = self.sobol_start + self.sobol_range*new_sobol_points
+            plausible_indexes = self.calculate_plausibility(new_sobol_points)
+            new_sobol_points = new_sobol_points[plausible_indexes]
+            all_sobol_points= np.vstack((all_sobol_points,new_sobol_points))
 
-        self.sobel_points = np.vstack((self.sobel_points,all_sobel_points))
-        self.likelihood = np.append(self.likelihood,np.full(all_sobel_points.shape[0],np.nan))
-        self.sim_output = self.sim_output + [None]*all_sobel_points.shape[0]
+        self.sobol_points = np.vstack((self.sobol_points,all_sobol_points))
+        self.likelihood = np.append(self.likelihood,np.full(all_sobol_points.shape[0],np.nan))
+        self.sim_output = self.sim_output + [None]*all_sobol_points.shape[0]
         return
 
     def remove_implausible(self):
         # remove implausible points
-        plausible_indexes = self.calculate_plausibility(self.sobel_points)
+        plausible_indexes = self.calculate_plausibility(self.sobol_points)
 
-        self.sobel_points = self.sobel_points[plausible_indexes]
+        self.sobol_points = self.sobol_points[plausible_indexes]
         self.likelihood = self.likelihood[plausible_indexes]
         self.sim_output = [item for keep, item in zip(plausible_indexes, self.sim_output) if keep]
 
@@ -126,7 +128,7 @@ class abcGP:
         # use the stored simulation output to recalculate with new
         # regression coefficients
 
-        for i, p in tqdm(enumerate(self.sobel_points)):
+        for i, p in tqdm(enumerate(self.sobol_points)):
 
             # points have a nan likelihood if they haven't been evaluated
             # so we skip points that are finite to include previous sims in the GP
@@ -136,7 +138,7 @@ class abcGP:
 
     def update_rc(self):
         # update the regression coefficients using latest plausible points
-        Y = self.sobel_points[np.isfinite(self.likelihood)]
+        Y = self.sobol_points[np.isfinite(self.likelihood)]
         
         #return if we don't have at least 2 plausible locations
         if len(Y)<=1: 

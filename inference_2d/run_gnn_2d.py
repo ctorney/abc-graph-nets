@@ -19,7 +19,6 @@ from gpabc import gp_abc
 from gpabc import am_sampler
 #from gabc import am_sampler_multi
 
-from sobol_seq import i4_sobol_generate
 from scipy.stats import gaussian_kde
 
 
@@ -35,7 +34,6 @@ from simulations import zonal_gnn
 from gpabc import gp_abc
 from gpabc import am_sampler
 
-from sobol_seq import i4_sobol_generate
 from scipy.stats import gaussian_kde
 
 import pickle
@@ -146,7 +144,7 @@ def setup_and_run_hmc(threadid):
         
         
         #####
-        L= 200 #500
+        L= 500
         N= 100 
         repeat = 20 #100
         discard = 2500 #2000
