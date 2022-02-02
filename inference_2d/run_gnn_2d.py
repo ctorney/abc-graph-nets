@@ -201,7 +201,7 @@ def setup_and_run_hmc(threadid):
         sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True, save_micro=True)
         
         def simulator_2d(params):
-            repeat = 50    
+            #repeat = 50    
             
         
         
@@ -254,7 +254,7 @@ def setup_and_run_hmc(threadid):
             abcGP.remove_implausible()
     
             #if i>0:
-            y_pred, y_std  = abcGP.predict_final(x_grid,remove_implausible=True)
+            #y_pred, y_std  = abcGP.predict_final(x_grid,remove_implausible=True)
     
             
             
