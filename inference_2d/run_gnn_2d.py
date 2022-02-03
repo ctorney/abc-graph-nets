@@ -259,7 +259,7 @@ def setup_and_run_hmc(threadid):
         ####
             
         #am_sampler:
-        Y = abcGP.sobel_points[np.isfinite(abcGP.likelihood)]
+        Y = abcGP.sob0l_points[np.isfinite(abcGP.likelihood)]
         logl = abcGP.predict_final(Y)[0]
         startval = Y[np.argsort(-logl[:,0])[0]]
         #startval = abcGP.sobel_points[np.random.choice(abcGP.sobel_points.shape[0])]
