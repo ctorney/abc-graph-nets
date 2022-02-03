@@ -259,15 +259,15 @@ def setup_and_run_hmc(threadid):
         ####
             
         #am_sampler:
-        Y = abcGP.sob0l_points[np.isfinite(abcGP.likelihood)]
+        Y = abcGP.sobol_points[np.isfinite(abcGP.likelihood)]
         logl = abcGP.predict_final(Y)[0]
         startval = Y[np.argsort(-logl[:,0])[0]]
-        #startval = abcGP.sobel_points[np.random.choice(abcGP.sobel_points.shape[0])]
+        #startval = abcGP.sobol_points[np.random.choice(abcGP.sobel_points.shape[0])]
         prior = np.array(((0.0,25.0),(0.0,25.0)))  
         print(startval)
         
         # step size is 1/50th of the plausible range
-        steps = np.ptp(abcGP.sobel_points,axis=0)/100
+        steps = np.ptp(abcGP.sobol_points,axis=0)/100
         import time
         start = time.time()
         #samples = am_sampler.am_sampler(abcGP.predict_final,2,startval,prior,steps, n_samples=1000, burn_in=5000, m=20)
