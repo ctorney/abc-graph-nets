@@ -10,5 +10,4 @@
 source ~/anaconda3/bin/activate tf2.6
 
 # run the python file
-python make_training_data.py
-python train_gnn.py
+python run_gnn_2d.py

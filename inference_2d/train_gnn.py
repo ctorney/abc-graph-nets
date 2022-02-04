@@ -172,6 +172,10 @@ parsed_valid_dataset = parsed_valid_dataset.map(_parse_graph)
 
 
 
+strategy = tf.distribute.MirroredStrategy()
+
+
+
 #************************************
 #************************************
 #********GNN MODEL*******************
@@ -185,47 +189,50 @@ n_feat_edge=5
 
 MLP_SIZE=32
 
-X_in = Input(shape=(n_feat_node,))
-A_in = Input(shape=(None,), sparse=True)
-E_in = Input(shape=(n_feat_edge,))
-I_in = Input(shape=(), dtype=tf.int64)
-IE_in = Input(shape=(), dtype=tf.int64)
+#with strategy.scope():
+if True:
+
+    X_in = Input(shape=(n_feat_node,))
+    A_in = Input(shape=(None,), sparse=True)
+    E_in = Input(shape=(n_feat_edge,))
+    I_in = Input(shape=(), dtype=tf.int64)
+    IE_in = Input(shape=(), dtype=tf.int64)
 
 
 
-X = Dense(MLP_SIZE, activation="linear")(X_in)
-E = Dense(MLP_SIZE, activation="linear")(E_in)
+    X = Dense(MLP_SIZE, activation="linear")(X_in)
+    E = Dense(MLP_SIZE, activation="linear")(E_in)
 
 
-X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
-X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
+    X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
+    X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
 
-X = Dense(MLP_SIZE, activation="linear",use_bias=False)(X)
+    X = Dense(MLP_SIZE, activation="linear",use_bias=False)(X)
 #E = Dense(MLP_SIZE, activation="linear",use_bias=False)(E)
 
 
-X = Concatenate()([X, X_in])
+    X = Concatenate()([X, X_in])
 #E = Concatenate()([E, E_in])
 
-Xs = GlobalAttnSumPool()([X, I_in])
-Xm = GlobalMaxPool()([X, I_in])
-Xa = GlobalAvgPool()([X, I_in])
+    Xs = GlobalAttnSumPool()([X, I_in])
+    Xm = GlobalMaxPool()([X, I_in])
+    Xa = GlobalAvgPool()([X, I_in])
 
 #Es = GlobalAttnSumPool()([E, IE_in])
 #Em = GlobalMaxPool()([E, IE_in])
 #Ea = GlobalAvgPool()([E, IE_in])
 
-X = Concatenate()([Xs,Xm,Xa])#, Es,Em,Ea])
+    X = Concatenate()([Xs,Xm,Xa])#, Es,Em,Ea])
 
-X = Dense(MLP_SIZE, activation="linear",use_bias=False)(X)
+    X = Dense(MLP_SIZE, activation="linear",use_bias=False)(X)
 
-output = Dense(n_out, activation="sigmoid",use_bias=False)(X)
+    output = Dense(n_out, activation="sigmoid",use_bias=False)(X)
 
-gnn_model = Model(inputs=[X_in, A_in, E_in, I_in, IE_in], outputs=output)
+    gnn_model = Model(inputs=[X_in, A_in, E_in, I_in, IE_in], outputs=output)
 
 
-learning_rate = 1e-3# Learning rate
-gnn_model.compile(optimizer=Adam(learning_rate), loss="mse")
+    learning_rate = 1e-3# Learning rate
+    gnn_model.compile(optimizer=Adam(learning_rate), loss="mse")
 
 if not os.path.exists('gnn'):
     os.makedirs('gnn')

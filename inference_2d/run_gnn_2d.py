@@ -263,6 +263,7 @@ def setup_and_run_hmc(threadid):
         logl = abcGP.predict_final(Y)[0]
         startval = Y[np.argsort(-logl[:,0])[0]]
         #startval = abcGP.sobol_points[np.random.choice(abcGP.sobol_points.shape[0])]
+        #startval = abcGP.sobol_points[np.random.choice(abcGP.sobel_points.shape[0])]
         prior = np.array(((0.0,25.0),(0.0,25.0)))  
         print(startval)
         
