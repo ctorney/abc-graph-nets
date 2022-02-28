@@ -71,7 +71,7 @@ def _parse_keras(x):
     acc = x['acc']
     #acc.set_shape((None,2))
     
-    target = x['parameter_vector'][0:4]
+    target = x['parameter_vector'][1:3]
     #target.set_shape((4))
     output = ((pos,vel,acc),target)
     return output
@@ -80,7 +80,7 @@ def _parse_keras(x):
 DOMAIN_SIZE=500.
 MAX_RADIUS=25.
 
-max_params = np.array([25.0,25.0,5.0,2*np.pi],dtype=np.float32)
+max_params = np.array([5.0,25.0,25.0,2*np.pi],dtype=np.float32)
 
 def _parse_graph(inputs, targets):
     #inputs, targets = x
@@ -182,7 +182,7 @@ strategy = tf.distribute.MirroredStrategy()
 #************************************
 #************************************
 
-n_out = 4
+n_out = 2
 n_feat_node=4
 n_feat_edge=5
 
@@ -281,7 +281,7 @@ for databatch in tqdm(parsed_valid_dataset):
 fig, axs = plt.subplots(1,2, figsize=(8, 3), facecolor='w', edgecolor='k')  
 
 axs = axs.ravel()
-for pred_i in range(2):
+for pred_i in range(4):
 
     pred_vals = np.array([pp[:,pred_i] for pp in pred_list]).flatten()
     true_vals = np.array([tt[:,pred_i] for tt in true_values]).flatten()
