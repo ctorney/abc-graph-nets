@@ -71,7 +71,7 @@ def _parse_keras(x):
     acc = x['acc']
     #acc.set_shape((None,2))
     
-    target = x['parameter_vector'][1:3]
+    target = x['parameter_vector'][0:4]
     #target.set_shape((4))
     output = ((pos,vel,acc),target)
     return output
