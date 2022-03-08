@@ -199,7 +199,7 @@ for databatch in tqdm(parsed_valid_dataset):
 
 
 
-fig, axs = plt.subplots(1,2, figsize=(8, 3), facecolor='w', edgecolor='k')  
+fig, axs = plt.subplots(1,4, figsize=(8, 3), facecolor='w', edgecolor='k')  
 
 axs = axs.ravel()
 for pred_i in range(4):
