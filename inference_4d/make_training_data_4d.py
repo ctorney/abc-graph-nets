@@ -29,8 +29,8 @@ param_values = np.zeros_like(sobel_points)
 
 param_values[:,0]=sobel_points[:,0]*params_max[0]
 param_values[:,3]=sobel_points[:,3]*params_max[3]
-param_values[:,1]=sobel_points[:,0] + sobel_points[:,1]*(params_max[1]-param_values[:,0])
-param_values[:,2]=sobel_points[:,0] + sobel_points[:,2]*(params_max[2]-param_values[:,0])
+param_values[:,1]=param_values[:,0] + sobel_points[:,1]*(params_max[1]-param_values[:,0])
+param_values[:,2]=param_values[:,0] + sobel_points[:,2]*(params_max[2]-param_values[:,0])
 
 #param_values[:,0]=sobel_points[:,0]*params_max[0]
 #param_values[:,3]=sobel_points[:,3]*params_max[3]
