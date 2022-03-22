@@ -47,8 +47,10 @@ import tensorflow as tf
 #sobol_points = np.load('sobol_points_2d.npy')
     
 ##
-sobol_listx = np.array([1.0,3.0,10.0,20.0]) #0,3,5,12])   
-sobol_listy = np.array([15.0,15.0,10.0,10.0]) #15,15,13,9]) 
+#sobol_listx = np.array([1.0,3.0,10.0,20.0]) #0,3,5,12])   
+#sobol_listy = np.array([15.0,15.0,10.0,10.0]) #15,15,13,9])
+sobol_listx = np.array([1.0,3.0,10.0,10.0]) #0,3,5,12])   
+sobol_listy = np.array([9.0,12.0,10.0,5.0]) #15,15,13,9]) 
 
 sobol_listva = np.array([1.5*pi, pi, pi/2, 1.75*pi]) 
 sobol_listlrep = np.array([0.5,2.0,3.0,1.0])    
@@ -164,8 +166,7 @@ def setup_and_run_hmc(threadid):
         data_sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True)
         
         
-        va=1.5*pi
-        lrep= 1       
+    
         
         
         data_sim.run_sim(lrep, lali, latt, va)
