@@ -24,7 +24,7 @@ class abcGP:
         self.sobol_generator.fast_forward(1) # skip the first point at origin
         self.sobol_points = self.sobol_generator.random(self.n_points)
         self.skip = self.n_points
-
+        nss = 3
         self.sobol_points = self.sobol_start + self.sobol_range*self.sobol_points
         self.simulator = simulator
 
@@ -33,7 +33,7 @@ class abcGP:
         self.gp = []
         self.sim_output = [None]*self.n_points
         self.likelihood = np.full(self.n_points, np.nan)
-        #self.reg_coeff = np.random.normal(size=(self.input_dim,nss))
+        self.reg_coeff = np.random.normal(size=(self.input_dim,nss))
 
     def runWave(self):
         # run a GP wave
@@ -45,7 +45,7 @@ class abcGP:
             if not np.isnan(self.likelihood[i]):
                 continue
             self.sim_output[i] = self.simulator(p)
-            self.likelihood[i] = self.likelihood_function(self.sim_output[i])#,self.reg_coeff)
+            self.likelihood[i] = self.likelihood_function(self.sim_output[i],self.reg_coeff)
 
 
 
@@ -65,7 +65,6 @@ class abcGP:
 
         #gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=5) #9   
         m = GPy.models.GPRegression(X,Y,kernel)
-        
         # calculate the resolution of points per dimension
         points_per_dim = ((len(self.gp)+1)*self.n_points)**(1.0/self.input_dim)
 

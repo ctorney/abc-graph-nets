@@ -15,7 +15,7 @@ import scipy
 sys.path.append('..')
 
 
-from gpabc import gp_abc
+from gpabc import gp_abc_rc
 from gpabc import am_sampler
 #from gabc import am_sampler_multi
 
@@ -74,39 +74,36 @@ def setup_and_run_hmc(threadid):
             
             
         #lrep = 1
-        vs = 3 #5
-        sigma = 0.1
-        eta = 0.9
-        simulation_cls.run_sim(eta, latt, lali, lrep, vs, va, sigma)
+        #vs = 3 #5
+        #sigma = 0.1
+        #eta = 0.9
+        #simulation_cls.run_sim(eta, latt, lali, lrep, vs, va, sigma)
+        simulation_cls.run_sim(lrep, lali, latt, va)
             
-        data_eta=eta
+        #data_eta=eta
         data_va=va
         data_latt=latt
         data_lali=lali
         data_lrep=lrep
-        data_vs = vs
-        data_sigma = sigma
+        #data_vs = vs
+        #data_sigma = sigma
             
         #DATA_y = [data_lali,data_latt,data_lrep,data_eta,data_vs,data_va,data_sigma]
             
             
-        op, rot, ent, nnd, dis = simulation_cls.get_macro_states()
+        op, rot, nnd = simulation_cls.get_macro_states()
         avgOPDATA=np.zeros(repeat)
         avgROTDATA=np.zeros(repeat)
-        avgENTDATA=np.zeros(repeat)
         avgNNDDATA=np.zeros(repeat)
-        avgDISDATA=np.zeros(repeat)
             
             
         for i in range(repeat):
             avgOPDATA[i] = op[((i+1)*(timesteps-1))-1]  
             avgROTDATA[i] = rot[((i+1)*(timesteps-1))-1] 
-            avgENTDATA[i] = ent[((i+1)*(timesteps-1))-1] 
             avgNNDDATA[i] = nnd[((i+1)*(timesteps-1))-1] 
-            avgDISDATA[i] = dis[((i+1)*(timesteps-1))-1] 
             
-        macrodata=  np.array([avgOPDATA,avgROTDATA,avgENTDATA,avgNNDDATA,avgDISDATA])
-        macrodata = np.squeeze([macrodata[np.r_[0:2,3],None]]) 
+        macrodata=  np.array([avgOPDATA,avgROTDATA,avgNNDDATA])
+        #macrodata = np.squeeze([macrodata[np.r_[0:2,3],None]]) 
             
 
             
@@ -128,11 +125,12 @@ def setup_and_run_hmc(threadid):
             repeat = 50    
             simulation_cls = zonal.zonal_model(N,timesteps+discard,discard=discard,repeat=repeat,L=L,dt=dt, save_interval=1,disable_progress=True) 
 
-            simulation_cls.run_sim(eta, params[2], params[1],params[0], vs, params[3], sigma) 
+            #simulation_cls.run_sim(eta, params[2], params[1],params[0], vs, params[3], sigma) 
+            simulation_cls.run_sim(params[0], params[1], params[2], params[3])
             
             output = np.array(simulation_cls.get_macro_states()) 
             
-            return np.squeeze([output[np.r_[0:2,3],None]]) 
+            return output #np.squeeze([output[np.r_[0:2,3],None]]) 
 #            output = simulation_cls.get_macro_states() 
 #            
 #            return np.array(output)
@@ -152,7 +150,7 @@ def setup_and_run_hmc(threadid):
         T = 3
                 
 
-        abcGP = gp_abc.abcGP(p_start,p_range,ndim,n_points,T,simulator_2d,abc_likelihood_2d) 
+        abcGP = gp_abc_rc.abcGP(p_start,p_range,ndim,n_points,T,simulator_2d,abc_likelihood_2d) 
                 
                 
         for i in range(n_wave):
@@ -164,9 +162,9 @@ def setup_and_run_hmc(threadid):
               
         #sampling:
         # random plausible point to start with
-        startval = abcGP.sobel_points[np.random.choice(abcGP.sobel_points.shape[0])]
+        startval = abcGP.sobol_points[np.random.choice(abcGP.sobol_points.shape[0])]
         # step size is 1/50th of the plausible range
-        steps = np.ptp(abcGP.sobel_points,axis=0)/50
+        steps = np.ptp(abcGP.sobol_points,axis=0)/50
         prior = np.array(((0.0,5.0),(0.0,25.0),(0.0,25.0),(0.0,2*pi)))
         samples = am_sampler.am_sampler(abcGP.predict_final,4,startval,prior, steps,n_samples=mcmcsteps, burn_in=burnin, m=100)
 
