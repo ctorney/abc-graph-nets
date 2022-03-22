@@ -163,9 +163,7 @@ def setup_and_run_hmc(threadid):
         
         data_sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True)
         
-        
-        va=1.5*pi
-        lrep= 1       
+   
         
         
         data_sim.run_sim(lrep, lali, latt, va)
