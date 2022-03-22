@@ -19,7 +19,6 @@ from gpabc import gp_abc
 from gpabc import am_sampler
 #from gabc import am_sampler_multi
 
-from sobol_seq import i4_sobol_generate
 from scipy.stats import gaussian_kde
 
 
@@ -35,7 +34,6 @@ from simulations import zonal_gnn
 from gpabc import gp_abc
 from gpabc import am_sampler
 
-from sobol_seq import i4_sobol_generate
 from scipy.stats import gaussian_kde
 
 import pickle
@@ -166,7 +164,6 @@ def setup_and_run_hmc(threadid):
         data_sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True)
         
         
-    
         
         
         data_sim.run_sim(lrep, lali, latt, va)
@@ -205,7 +202,7 @@ def setup_and_run_hmc(threadid):
             return np.log(1e-18 + 1/repeat * (((2*pi*cov)**k)**0.5)*np.sum(scipy.stats.multivariate_normal(data_vector,cov).pdf(sim_output)))
         
         
-        sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True, save_micro=True)
+        sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True)
         
         def simulator_2d(params):
             #repeat = 50    
