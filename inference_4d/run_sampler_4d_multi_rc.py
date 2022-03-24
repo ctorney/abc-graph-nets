@@ -30,11 +30,11 @@ from simulations import zonal
 ##
 #sobol_listx = np.array([5,7.5,2.5,3.75]) #0,3,5,12])   
 #sobol_listy = np.array([5,2.5,7.5,3.75]) #15,15,13,9]) 
-sobol_listx = np.array([1.0,3.0,10.0,20.0]) #0,3,5,12])   
-sobol_listy = np.array([15.0,15.0,10.0,10.0]) #15,15,13,9]) 
+sobol_listx = np.array([1.0,3.0,10.0,10.0]) #0,3,5,12])   
+sobol_listy = np.array([9.0,12.0,10.0,5.0]) #15,15,13,9]) 
 
 sobol_listva = np.array([1.5*pi, pi, pi/2, 1.75*pi]) 
-sobol_listlrep = np.array([0.5,2.0,3.0,1.0])  
+sobol_listlrep = np.array([0.5,2.0,3.0,1.0])    
 
    # observability_sim = obs_list[threadid]
 # specify observation values to use here
