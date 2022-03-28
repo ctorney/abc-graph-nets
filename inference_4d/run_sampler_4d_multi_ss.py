@@ -28,11 +28,11 @@ from simulations import zonal
 #sobol_points = np.load('sobol_points_2d.npy')
     
 ##
-sobol_listx = np.array([1.0,3.0,10.0,20.0]) #0,3,5,12])   
-sobol_listy = np.array([15.0,15.0,10.0,10.0]) #15,15,13,9]) 
+sobol_listx = np.array([1.0,3.0,10.0,10.0]) #0,3,5,12])   
+sobol_listy = np.array([9.0,12.0,10.0,5.0]) #15,15,13,9]) 
 
 sobol_listva = np.array([1.5*pi, pi, pi/2, 1.75*pi]) 
-sobol_listlrep = np.array([0.5,2.0,3.0,1.0])  
+sobol_listlrep = np.array([0.5,2.0,3.0,1.0])    
 
    # observability_sim = obs_list[threadid]
 # specify observation values to use here
@@ -70,43 +70,31 @@ def setup_and_run_hmc(threadid):
         dt=0.1 #1 #0.1
         simulation_cls = zonal.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval)
             
-        eta = 0.9    
-        #lrep= 1
-        vs=3 #5
-        sigma=0.1
-        simulation_cls.run_sim(eta, latt, lali, lrep, vs, va, sigma)
+        simulation_cls.run_sim(lrep, lali, latt, va)
             
-        data_eta=eta
         data_va=va
         data_latt=latt
         data_lali=lali
         data_lrep=lrep
-        data_vs = vs
-        data_sigma = sigma
             
         #DATA_y = [data_lali,data_latt,data_lrep,data_eta,data_vs,data_va,data_sigma]
             
             
-        op, rot, ent, nnd, dis = simulation_cls.get_macro_states()
+        op, rot, nnd = simulation_cls.get_macro_states()
         avgOPDATA=np.zeros(repeat)
         avgROTDATA=np.zeros(repeat)
-        avgENTDATA=np.zeros(repeat)
         avgNNDDATA=np.zeros(repeat)
-        avgDISDATA=np.zeros(repeat)
             
             
         for i in range(repeat):
             avgOPDATA[i] = op[((i+1)*(timesteps-1))-1]  
             avgROTDATA[i] = rot[((i+1)*(timesteps-1))-1] 
-            avgENTDATA[i] = ent[((i+1)*(timesteps-1))-1] 
             avgNNDDATA[i] = nnd[((i+1)*(timesteps-1))-1] 
-            avgDISDATA[i] = dis[((i+1)*(timesteps-1))-1] 
             
-        macrodata=  np.array([avgOPDATA,avgROTDATA,avgENTDATA,avgNNDDATA,avgDISDATA])
-        macrodata = np.squeeze([macrodata[np.r_[0:2,3],None]])    
+        macrodata=  np.array([avgOPDATA,avgROTDATA,avgNNDDATA])
 
             
-        def abc_likelihood_2d(sim_output,rc):
+        def abc_likelihood_2d(sim_output,rc=None):
             theta_0 = sim_output
 
             ss_0 = macrodata
@@ -122,15 +110,13 @@ def setup_and_run_hmc(threadid):
         def simulator_2d(params):
             repeat = 50    
             simulation_cls = zonal.zonal_model(N,timesteps+discard,discard=discard,repeat=repeat,L=L,dt=dt, save_interval=1,disable_progress=True) 
-            
-            simulation_cls.run_sim(eta, params[2], params[1],params[0], vs, params[3], sigma)
 
-#            simulation_cls.run_sim(eta, params[1], params[0],params[3], vs, params[2], sigma)  
-            #output = simulation_cls.get_macro_states() 
+            #simulation_cls.run_sim(eta, params[2], params[1],params[0], vs, params[3], sigma) 
+            simulation_cls.run_sim(params[0], params[1], params[2], params[3])
+            
             output = np.array(simulation_cls.get_macro_states()) 
             
-            return np.squeeze([output[np.r_[0:2,3],None]]) 
-            #return np.array(output)
+            return output #np.squeeze([output[np.r_[0:2,3],None]]) 
                             
         #2D inference of l_ali and eta: 
         ndim = 4
@@ -157,9 +143,9 @@ def setup_and_run_hmc(threadid):
               
         #sampling:
         # random plausible point to start with
-        startval = abcGP.sobel_points[np.random.choice(abcGP.sobel_points.shape[0])]
+        startval = abcGP.sobol_points[np.random.choice(abcGP.sobol_points.shape[0])]
         # step size is 1/50th of the plausible range
-        steps = np.ptp(abcGP.sobel_points,axis=0)/50
+        steps = np.ptp(abcGP.sobol_points,axis=0)/50
         prior = np.array(((0.0,5.0),(0.0,25.0),(0.0,25.0),(0.0,2*pi)))
         samples = am_sampler.am_sampler(abcGP.predict_final,4,startval,prior, steps,n_samples=mcmcsteps, burn_in=burnin, m=100)
 
