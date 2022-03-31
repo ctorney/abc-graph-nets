@@ -30,7 +30,9 @@ class zonal_model:
     def initialise_state(self):
 
         self.angles = tf.random.uniform((self.B,self.N,1), 0, 2*pi) #
-        self.positions = tf.random.uniform((self.B,self.N,2), 0.0, self.L, dtype=tf.float32) #0,self.L)
+        #self.positions = tf.random.uniform((self.B,self.N,2), 0.0, self.L, dtype=tf.float32) #0,self.L)
+        self.positions = tf.random.uniform((self.B,self.N,2), 0.5*self.L - 10.0, 0.5*self.L+10.0, dtype=tf.float32) #0,self.L)
+
         angles = tf.random.uniform((self.B,self.N,1), 0, 2*pi,dtype=tf.float32) #
 
         cos_A = tf.math.cos(angles)
@@ -111,13 +113,13 @@ class zonal_model:
 
             # attractive interactions
             attr_x = tf.where(dist<=Ra, dx, tf.zeros_like(dx))
-            #attr_x = tf.where(dist>(Ro+Rr), attr_x, tf.zeros_like(attr_x))
+            attr_x = tf.where(dist>Ro, attr_x, tf.zeros_like(attr_x))
             attr_x = tf.where(rel_angle_to_neigh<0.5*va, attr_x, tf.zeros_like(attr_x))
             attr_x = tf.where(rel_angle_to_neigh>-0.5*va, attr_x, tf.zeros_like(attr_x))
             attr_x = tf.reduce_sum(attr_x,axis=2)
 
             attr_y = tf.where(dist<=Ra, dy, tf.zeros_like(dy))
-            #attr_y = tf.where(dist>(Ro+Rr), attr_y, tf.zeros_like(attr_y))
+            attr_y = tf.where(dist>Ro, attr_y, tf.zeros_like(attr_y))
             attr_y = tf.where(rel_angle_to_neigh<0.5*va, attr_y, tf.zeros_like(attr_y))
             attr_y = tf.where(rel_angle_to_neigh>-0.5*va, attr_y, tf.zeros_like(attr_y))
             attr_y = tf.reduce_sum(attr_y,axis=2)
@@ -173,7 +175,7 @@ class zonal_model:
             positions, velocities = update_tf(self.positions,  self.velocities)
             self.positions = positions
             self.velocities = velocities
-            if i>=self.discard:
+            if i>self.discard:
                 if i%self.save_interval==0:
                         
                     self.macro_state1[:,counter] = self.compute_macro_state1().numpy()
