@@ -79,7 +79,9 @@ class zonal_model:
 
     def run_sim(self, *params):
 
-        Rr, Ro, Ra, va = params
+        Rr, Ror, Rar, va = params
+        Ro = Rr + Ror # absolute interaction distance (values are passed in as the interaction zone width)
+        Ra = Ro + Rar # absolute interaction distance (values are passed in as the interaction zone width)
         
         if self.save_micro: 
             record_file = self.train_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
