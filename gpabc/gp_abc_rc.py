@@ -20,7 +20,8 @@ class abcGP:
         self.n_points = n_points
         self.l_init = sobol_range/((n_points-1)**(1./input_dim))
         self.T = T
-        self.sobol_generator = qmc.Sobol(d=self.input_dim, scramble=False)
+        #self.sobol_generator = qmc.Sobol(d=self.input_dim, scramble=False)
+        self.sobol_generator = qmc.Halton(d=self.input_dim, scramble=False)
         self.sobol_generator.fast_forward(1) # skip the first point at origin
         self.sobol_points = self.sobol_generator.random(self.n_points)
         self.skip = self.n_points
