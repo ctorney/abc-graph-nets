@@ -79,9 +79,9 @@ class zonal_model:
 
     def run_sim(self, *params):
 
-        Rr, Ror, Rar, va = params
-        Ro = Rr + Ror # absolute interaction distance (values are passed in as the interaction zone width)
-        Ra = Ro + Rar # absolute interaction distance (values are passed in as the interaction zone width)
+        Rr, Ro, Ra, va = params
+        #Ro = Rr + Ror # absolute interaction distance (values are passed in as the interaction zone width)
+        #Ra = Ro + Rar # absolute interaction distance (values are passed in as the interaction zone width)
         
         if self.save_micro: 
             record_file = self.train_directory + '/microstates-' + str(self.sim_counter) + '.tfrecords'
@@ -156,13 +156,13 @@ class zonal_model:
 
             # attractive interactions
             attr_x = tf.where(dist<=Ra, dx, tf.zeros_like(dx))
-            attr_x = tf.where(dist>Ro, attr_x, tf.zeros_like(attr_x))
+            #attr_x = tf.where(dist>Ro, attr_x, tf.zeros_like(attr_x))
             attr_x = tf.where(rel_angle_to_neigh<0.5*va, attr_x, tf.zeros_like(attr_x))
             attr_x = tf.where(rel_angle_to_neigh>-0.5*va, attr_x, tf.zeros_like(attr_x))
             attr_x = tf.reduce_sum(attr_x,axis=2)
 
             attr_y = tf.where(dist<=Ra, dy, tf.zeros_like(dy))
-            attr_y = tf.where(dist>Ro, attr_y, tf.zeros_like(attr_y))
+            #attr_y = tf.where(dist>Ro, attr_y, tf.zeros_like(attr_y))
             attr_y = tf.where(rel_angle_to_neigh<0.5*va, attr_y, tf.zeros_like(attr_y))
             attr_y = tf.where(rel_angle_to_neigh>-0.5*va, attr_y, tf.zeros_like(attr_y))
             attr_y = tf.reduce_sum(attr_y,axis=2)
@@ -172,12 +172,12 @@ class zonal_model:
             attr_y = tf.math.divide_no_nan(attr_y,at_norm)
 
             # combine angles and convert to desired angle change
-            social_x = tf.where(rep_norm>1e-6,rep_x, align_x + attr_x)
-            social_y = tf.where(rep_norm>1e-6,rep_y, align_y + attr_y)
+            #social_x = tf.where(rep_norm>1e-6,rep_x, align_x + attr_x)
+            #social_y = tf.where(rep_norm>1e-6,rep_y, align_y + attr_y)
             
             # combine angles and convert to desired angle change
-            #social_x = rep_x + align_x + attr_x
-            #social_y = rep_y + align_y + attr_y
+            social_x = rep_x + align_x + attr_x
+            social_y = rep_y + align_y + attr_y
             
             social_norm = tf.math.sqrt(social_x**2+social_y**2)
             social_x = tf.math.divide_no_nan(social_x,social_norm)
