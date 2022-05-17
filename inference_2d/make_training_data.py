@@ -14,7 +14,7 @@ from scipy.stats import qmc
 
 
 INPUT_DIM = 2
-N_POINTS = 10#2000
+N_POINTS = 2000
 
 
 REP = 1.0
@@ -27,12 +27,15 @@ sobel_points = sampler.random(N_POINTS)
 param_values = np.zeros_like(sobel_points)
 
 
-param_values[:,0]=REP + sobel_points[:,0]*(params_max[0]-REP)
-param_values[:,1]=REP + sobel_points[:,1]*(params_max[1]-REP)
+#param_values[:,0]= sobel_points[:,0]*(params_max[0]-REP)
+#param_values[:,1]= sobel_points[:,1]*(params_max[1] - param_values[:,0] )
+param_values[:,0]= sobel_points[:,0]*(params_max[0])
+param_values[:,1]= sobel_points[:,1]*(params_max[1])
+#param_values[:,1]= sobel_points[:,1]*params_max[1]
 
 
 
-L= 500
+L= 100
 N= 100 
 repeat = 100
 discard = 2000

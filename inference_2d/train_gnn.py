@@ -78,8 +78,8 @@ def _parse_keras(x):
     return output
 
 
-DOMAIN_SIZE=500.
-MAX_RADIUS=25.
+DOMAIN_SIZE=100.
+MAX_RADIUS=250.
 
 max_params = np.array([25.0,25.0],dtype=np.float32)
 
@@ -141,9 +141,10 @@ def _parse_graph(inputs, targets):
     node_velocities = tf.reshape(V,(-1,2))
     node_accelerations = tf.reshape(A,(-1,2))
 
-    output_x = tf.concat([node_velocities,node_accelerations],axis=-1)
+    #output_x = tf.concat([node_velocities,node_accelerations],axis=-1)
+    output_x = node_velocities
 
-    return (output_x, output_a, output_e, output_i,output_ie), targets/max_params
+    return (output_x, output_a, output_e, output_i,output_ie), targets#/max_params
     
     
     
@@ -184,67 +185,67 @@ strategy = tf.distribute.MirroredStrategy()
 #************************************
 
 n_out = 2
-n_feat_node=4
+n_feat_node=2
 n_feat_edge=5
 
-MLP_SIZE=32
+MLP_SIZE=16
 
-#with strategy.scope():
-if True:
-
-    X_in = Input(shape=(n_feat_node,))
-    A_in = Input(shape=(None,), sparse=True)
-    E_in = Input(shape=(n_feat_edge,))
-    I_in = Input(shape=(), dtype=tf.int64)
-    IE_in = Input(shape=(), dtype=tf.int64)
+X_in = Input(shape=(n_feat_node,))
+A_in = Input(shape=(None,), sparse=True)
+E_in = Input(shape=(n_feat_edge,))
+I_in = Input(shape=(), dtype=tf.int64)
+IE_in = Input(shape=(), dtype=tf.int64)
 
 
 
-    X = Dense(MLP_SIZE, activation="linear")(X_in)
-    E = Dense(MLP_SIZE, activation="linear")(E_in)
+X = Dense(MLP_SIZE, activation="linear")(X_in)
+E = Dense(MLP_SIZE, activation="linear")(E_in)
 
 
-    X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
-    X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
+X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
+#X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
+# try a single layer - doesn't seem to make much difference in the paper
 
-    X = Dense(MLP_SIZE, activation="linear",use_bias=False)(X)
-#E = Dense(MLP_SIZE, activation="linear",use_bias=False)(E)
-
-
-    X = Concatenate()([X, X_in])
-#E = Concatenate()([E, E_in])
-
-    Xs = GlobalAttnSumPool()([X, I_in])
-    Xm = GlobalMaxPool()([X, I_in])
-    Xa = GlobalAvgPool()([X, I_in])
-
-#Es = GlobalAttnSumPool()([E, IE_in])
-#Em = GlobalMaxPool()([E, IE_in])
-#Ea = GlobalAvgPool()([E, IE_in])
-
-    X = Concatenate()([Xs,Xm,Xa])#, Es,Em,Ea])
-
-    X = Dense(MLP_SIZE, activation="linear",use_bias=False)(X)
-
-    output = Dense(n_out, activation="sigmoid",use_bias=False)(X)
-
-    gnn_model = Model(inputs=[X_in, A_in, E_in, I_in, IE_in], outputs=output)
+X = Dense(MLP_SIZE, activation="linear",use_bias=True)(X)
+# E = Dense(MLP_SIZE, activation="linear",use_bias=False)(E)
 
 
-    learning_rate = 1e-3# Learning rate
-    gnn_model.compile(optimizer=Adam(learning_rate), loss="mse")
+#X = Concatenate()([X, X_in])
+E = Concatenate()([E, E_in])
+
+Xs = GlobalAttentionPool(MLP_SIZE)([X, I_in])
+Xm = GlobalMaxPool()([X, I_in])
+Xa = GlobalAvgPool()([X, I_in])
+
+# Es = GlobalAttnSumPool()([E, IE_in])
+# Em = GlobalMaxPool()([E, IE_in])
+# Ea = GlobalAvgPool()([E, IE_in])
+
+X = Concatenate()([Xm,Xa])#, Es,Em,Ea])
+# try without Xs - 
+
+X = Dense(MLP_SIZE, activation="linear",use_bias=True)(X)
+
+output = Dense(n_out, activation="softplus",use_bias=True)(X)
+
+gnn_model = Model(inputs=[X_in, A_in, E_in, I_in, IE_in], outputs=output)
+
+
+learning_rate = 1e-3# Learning rate
+gnn_model.compile(optimizer=Adam(learning_rate),loss="mse")
+
+
 
 if not os.path.exists('gnn'):
     os.makedirs('gnn')
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath='gnn/weights.{epoch:02d}-{val_loss:.2f}.hdf5',
                                                             save_weights_only=True,
                                                             monitor='val_loss',
-                                                            mode='max',
+                                                            mode='min',
                                                             save_best_only=True)
-
 stop_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss",
                                                     min_delta=0,
-                                                    patience=5,
+                                                    patience=1,
                                                     verbose=0,
                                                     mode="auto",
                                                     restore_best_weights=True)

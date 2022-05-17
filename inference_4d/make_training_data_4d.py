@@ -17,9 +17,6 @@ INPUT_DIM = 4
 N_POINTS = 2000
 
 
-#REP = 1.0
-#VA = 1.5*pi
-
 params_max = np.array([5.0,25.0,25.0,2*np.pi]) #l_ali, l_att, l_rep, v_a
 sampler = qmc.Sobol(d=INPUT_DIM, scramble=False)
 sampler.fast_forward(1) # skip the first point at origin
@@ -28,17 +25,12 @@ param_values = np.zeros_like(sobel_points)
 
 
 param_values[:,0]=sobel_points[:,0]*params_max[0]
+param_values[:,1]=sobel_points[:,1]*params_max[1]
+param_values[:,2]=sobel_points[:,2]*params_max[2]
 param_values[:,3]=sobel_points[:,3]*params_max[3]
-param_values[:,1]=param_values[:,0] + sobel_points[:,1]*(params_max[1]-param_values[:,0])
-param_values[:,2]=param_values[:,0] + sobel_points[:,2]*(params_max[2]-param_values[:,0])
-
-#param_values[:,0]=sobel_points[:,0]*params_max[0]
-#param_values[:,3]=sobel_points[:,3]*params_max[3]
-#param_values[:,1]=sobel_points[:,1]*params_max[1] 
-#param_values[:,2]=sobel_points[:,2]*params_max[2]
 
 
-L= 500
+L= 100
 N= 100 
 repeat = 100
 discard = 2000

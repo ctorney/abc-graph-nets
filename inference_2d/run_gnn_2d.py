@@ -47,6 +47,8 @@ import tensorflow as tf
 ##
 sobol_listx = np.array([5,7.5,2.5,3.75]) #0,3,5,12])   
 sobol_listy = np.array([5,2.5,7.5,3.75]) #15,15,13,9]) 
+sobol_listx = np.array([0.0,3.0,15,15.0])
+sobol_listy = np.array([15.0,15.0,20,15.0])
 
 
 
@@ -60,7 +62,7 @@ def setup_and_run_hmc(threadid):
 
 
     num_reps = 10
-    burnin = 1000 #10000 mini test first
+    burnin = 5000 #10000 mini test first
     mcmcsteps = 2000 #8000
     
     lali = sobol_listx[threadid]
@@ -74,7 +76,7 @@ def setup_and_run_hmc(threadid):
      
         max_params = np.array([25.0,25.0],dtype=np.float32)
         MAX_RADIUS=25.
-        DOMAIN_SIZE=500.
+        DOMAIN_SIZE=100.
         
         def _parse_graph(inputs):
             #inputs, targets = x
@@ -134,7 +136,7 @@ def setup_and_run_hmc(threadid):
             node_velocities = tf.reshape(V,(-1,2))
             node_accelerations = tf.reshape(A,(-1,2))
         
-            output_x = tf.concat([node_velocities,node_accelerations],axis=-1)
+            output_x = node_velocities#tf.concat([node_velocities,node_accelerations],axis=-1)
         
             return output_x, output_a, output_e, output_i,output_ie#), targets/max_params    
         
@@ -144,11 +146,11 @@ def setup_and_run_hmc(threadid):
         
         
         #####
-        L= 500
+        L= 100
         N= 100 
-        repeat = 20 #100
+        repeat = 100
         discard = 2500 #2000
-        timesteps = 1000
+        timesteps = 1
         save_interval=100
         dt=0.1 
         
@@ -196,10 +198,10 @@ def setup_and_run_hmc(threadid):
             return np.log(1e-18 + 1/repeat * (((2*pi*cov)**k)**0.5)*np.sum(scipy.stats.multivariate_normal(data_vector,cov).pdf(sim_output)))
         
         
-        sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True, save_micro=True)
+        sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True, save_micro=False)
         
         def simulator_2d(params):
-            #repeat = 50    
+            repeat = 50    
             
         
         
