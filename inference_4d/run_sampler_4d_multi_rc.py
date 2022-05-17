@@ -1,4 +1,4 @@
-#running with matched noise models, and new multiscale am sampler.
+
 
 import threading
 import numpy as np
@@ -9,105 +9,44 @@ np.set_printoptions(suppress=True,precision=3)
 import os, sys
 from math import *
 import tensorflow as tf 
-import scipy 
 
 
 sys.path.append('..')
 
 
-from gpabc import gp_abc_rc
+from gpabc import gp_abc
 from gpabc import am_sampler
-#from gabc import am_sampler_multi
-
-#from sobol_seq import i4_sobol_generate
-from scipy.stats import qmc
-from scipy.stats import gaussian_kde
-
 from simulations import zonal
+from gnn_model import model
+from params4d import *
 
-#sobol_points = np.load('sobol_points_2d.npy')
-    
-##
-#sobol_listx = np.array([5,7.5,2.5,3.75]) #0,3,5,12])   
-#sobol_listy = np.array([5,2.5,7.5,3.75]) #15,15,13,9]) 
-sobol_listx = np.array([1.0,3.0,10.0,10.0]) #0,3,5,12])   
-sobol_listy = np.array([9.0,12.0,10.0,5.0]) #15,15,13,9]) 
-
-sobol_listva = np.array([1.5*pi, pi, pi/2, 1.75*pi]) 
-sobol_listlrep = np.array([0.5,2.0,3.0,1.0])    
-
-   # observability_sim = obs_list[threadid]
-# specify observation values to use here
 
 
 def setup_and_run_hmc(threadid):
     np.random.seed(threadid)
     tf.random.set_seed(threadid)
 
-
-    num_reps = 10
-    burnin = 5000 #10000
-    mcmcsteps = 1000 #8000
- 
-    
-    
-    #for dl in range(di):                               
         
     lali = sobol_listx[threadid]
     latt = sobol_listy[threadid]
     lrep = sobol_listlrep[threadid]
-#    eta = sobol_listeta[threadid]
     va = sobol_listva[threadid]
-#        lali = sobol_points[dl,0]  #data instantiation
-#        latt = sobol_points[dl,1] 
         
     for data_rep in range(num_reps):             
-        ## generate data
-        L= 500 #200
-        discard= 2000 #2500 #5000 
-        N= 100 #500
-        repeat = 100 #20 #100#0 
-        timesteps = 2 
-        save_interval=1 #0 #1
-        dt=0.1 #1 #0.1
-        simulation_cls = zonal.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval)
-            
-            
-        #lrep = 1
-        #vs = 3 #5
-        #sigma = 0.1
-        #eta = 0.9
-        #simulation_cls.run_sim(eta, latt, lali, lrep, vs, va, sigma)
+        simulation_cls = zonal.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=data_repeat, dt=dt,save_interval=save_interval)
         simulation_cls.run_sim(lrep, lali, latt, va)
             
-        #data_eta=eta
         data_va=va
         data_latt=latt
         data_lali=lali
         data_lrep=lrep
-        #data_vs = vs
-        #data_sigma = sigma
-            
-        #DATA_y = [data_lali,data_latt,data_lrep,data_eta,data_vs,data_va,data_sigma]
             
             
         op, rot, nnd = simulation_cls.get_macro_states()
-        avgOPDATA=np.zeros(repeat)
-        avgROTDATA=np.zeros(repeat)
-        avgNNDDATA=np.zeros(repeat)
-            
-            
-        for i in range(repeat):
-            avgOPDATA[i] = op[((i+1)*(timesteps-1))-1]  
-            avgROTDATA[i] = rot[((i+1)*(timesteps-1))-1] 
-            avgNNDDATA[i] = nnd[((i+1)*(timesteps-1))-1] 
-            
-        macrodata=  np.array([avgOPDATA,avgROTDATA,avgNNDDATA])
-        #macrodata = np.squeeze([macrodata[np.r_[0:2,3],None]]) 
-            
+        macrodata=  np.array([op[:,-1], rot[:,-1],nnd[:,-1]])
 
             
-        def abc_likelihood_2d(sim_output,rc):
+        def abc_likelihood_4d(sim_output,rc):
             theta_0 = rc@sim_output
 
             ss_0 = rc@macrodata
@@ -121,34 +60,16 @@ def setup_and_run_hmc(threadid):
             return np.log(1e-18 + 1/repeat * (((2*pi)**k)**0.5*np.product(sd0))*np.sum(scipy.stats.multivariate_normal(theta_DATA0,cov).pdf(theta_0.T)))
 
 
-        def simulator_2d(params):
-            repeat = 50    
-            simulation_cls = zonal.zonal_model(N,timesteps+discard,discard=discard,repeat=repeat,L=L,dt=dt, save_interval=1,disable_progress=True) 
+        def simulator_4d(params):
 
-            #simulation_cls.run_sim(eta, params[2], params[1],params[0], vs, params[3], sigma) 
+            simulation_cls = zonal.zonal_model(N,timesteps+discard,discard=discard,repeat=sim_repeat,L=L,dt=dt, save_interval=1,disable_progress=True) 
+
             simulation_cls.run_sim(params[0], params[1], params[2], params[3])
             
             output = np.array(simulation_cls.get_macro_states()) 
             
-            return output #np.squeeze([output[np.r_[0:2,3],None]]) 
-#            output = simulation_cls.get_macro_states() 
-#            
-#            return np.array(output)
+            return output
                             
-        #2D inference of l_ali and eta: 
-        ndim = 4
-        p_start = np.array([0.0,0.0,0.0,0.0])
-        p_range = np.array([5.0,25.0,25.0,2*pi]) 
-                
-        # use values for plotting the predicted GP
-        #X = np.array([np.linspace(p_start[0],p_start[0]+p_range[0],100),np.linspace(p_start[1],p_start[1]+p_range[1],100)])
-        #y_previous = np.full((100,100),np.log(1e-18))
-                
-        # number of waves
-        n_wave = 10 
-        n_points = 20 
-        T = 3
-                
 
         abcGP = gp_abc_rc.abcGP(p_start,p_range,ndim,n_points,T,simulator_2d,abc_likelihood_2d) 
                 
@@ -165,11 +86,10 @@ def setup_and_run_hmc(threadid):
         startval = abcGP.sobol_points[np.random.choice(abcGP.sobol_points.shape[0])]
         # step size is 1/50th of the plausible range
         steps = np.ptp(abcGP.sobol_points,axis=0)/50
-        prior = np.array(((0.0,5.0),(0.0,25.0),(0.0,25.0),(0.0,2*pi)))
-        samples = am_sampler.am_sampler(abcGP.predict_final,4,startval,prior, steps,n_samples=mcmcsteps, burn_in=burnin, m=100)
+        samples = am_sampler.am_sampler(abcGP.predict_final,4,startval,prior, steps,n_samples=mcmcsteps, burn_in=burnin, m=thin)
 
 
-        filename = '4d_multi_rc/SR_rep_' + str(data_rep) + '_DI_' + str(threadid) + '.npy'
+        filename = 'results/4d_multi_rc/rep_' + str(data_rep) + '_DI_' + str(threadid) + '.npy'
         np.save(filename,samples)
 
 

@@ -9,7 +9,6 @@ np.set_printoptions(suppress=True,precision=3)
 import os, sys
 from math import *
 import tensorflow as tf 
-import scipy 
 
 
 sys.path.append('..')
@@ -17,38 +16,9 @@ sys.path.append('..')
 
 from gpabc import gp_abc
 from gpabc import am_sampler
-#from gabc import am_sampler_multi
-
-from scipy.stats import gaussian_kde
-
-
-
-
-from sklearn import datasets, linear_model
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
-
-from tensorflow.keras import Model
-
 from simulations import zonal_gnn
-from gpabc import gp_abc
-from gpabc import am_sampler
-
-from scipy.stats import gaussian_kde
-
-import pickle
-
-#from graph_network import EncodeProcessDecode
-
-import tensorflow as tf
-
-#sobol_points = np.load('sobol_points_2d.npy')
-    
-##
-#sobol_listx = np.array([0.0,3.0,15.0,15.0])
-#sobol_listy = np.array([15.0,15.0,20.0,15.0])
-sobol_listx = np.array([0.0,2.0,9.0,14.0])
-sobol_listy = np.array([14.0,12.0,5.0,0.0])
+from gnn_model import model
+from params2d import *
 
 
 
@@ -56,110 +26,21 @@ def setup_and_run_hmc(threadid):
     np.random.seed(threadid)
     tf.random.set_seed(threadid)
 
-
-    num_reps = 10
-    burnin = 10000 #10000 mini test first
-    mcmcsteps = 2000 #8000
-    skip=10
     
     lali = sobol_listx[threadid]
     latt = sobol_listy[threadid]
-    va=1.5*pi
-    lrep= 1  
         
     for data_rep in range(num_reps):  
     
-        ####
-     
-        max_params = np.array([25.0,25.0],dtype=np.float32)
-        MAX_RADIUS=250.
-        DOMAIN_SIZE=100.
-        
-        def _parse_graph(inputs):
-            #inputs, targets = x
-            X, V, A = inputs
-            
-            Xx = tf.expand_dims(X[...,0],-1)
-            dx = -Xx + tf.linalg.matrix_transpose(Xx)
-            dx = tf.where(dx>0.5*DOMAIN_SIZE, dx-DOMAIN_SIZE, dx) 
-            dx = tf.where(dx<-0.5*DOMAIN_SIZE, dx+DOMAIN_SIZE, dx) 
-        
-            Xy = tf.expand_dims(X[...,1],-1)
-            dy = -Xy + tf.linalg.matrix_transpose(Xy)
-            dy = tf.where(dy>0.5*DOMAIN_SIZE, dy-DOMAIN_SIZE, dy) 
-            dy = tf.where(dy<-0.5*DOMAIN_SIZE, dy+DOMAIN_SIZE, dy) 
-        
-            Vx = tf.expand_dims(V[...,0],-1)
-            dvx = -Vx + tf.linalg.matrix_transpose(Vx)
-        
-            Vy = tf.expand_dims(V[...,1],-1)
-            dvy = -Vy + tf.linalg.matrix_transpose(Vy)
-            
-            dvnorm = tf.math.sqrt(dvx**2+dvy**2)
-            dvx = tf.math.divide_no_nan(dvx,dvnorm)
-            dvy = tf.math.divide_no_nan(dvy,dvnorm)
-        
-            angles = tf.expand_dims(tf.math.atan2(V[...,1],V[...,0]),-1)
-            angle_to_neigh = tf.math.atan2(dy, dx) 
-        
-            rel_angle_to_neigh = angle_to_neigh - angles
-        
-            dist = tf.math.sqrt(tf.square(dx)+tf.square(dy))
-        
-            adj_matrix = tf.where(dist<MAX_RADIUS, tf.ones_like(dist,dtype=tf.int32), tf.zeros_like(dist,dtype=tf.int32))
-            adj_matrix = tf.linalg.set_diag(adj_matrix, tf.zeros(tf.shape(adj_matrix)[:2],dtype=tf.int32))
-            sender_recv_list = tf.where(adj_matrix)
-            n_edge = tf.reduce_sum(adj_matrix, axis=[1,2])
-            n_node = tf.ones_like(n_edge)*tf.shape(adj_matrix)[-1]
-        
-            output_i = tf.repeat(tf.range(tf.shape(adj_matrix)[0]),n_node)
-            output_ie = tf.repeat(tf.range(tf.shape(adj_matrix)[0]),n_edge)
-        
-        
-            senders =tf.squeeze(tf.slice(sender_recv_list,(0,1),size=(-1,1)))+ tf.squeeze(tf.slice(sender_recv_list,(0,0),size=(-1,1)))*tf.shape(adj_matrix,out_type=tf.int64)[-1]
-            receivers = tf.squeeze(tf.slice(sender_recv_list,(0,2),size=(-1,1))) + tf.squeeze(tf.slice(sender_recv_list,(0,0),size=(-1,1)))*tf.shape(adj_matrix,out_type=tf.int64)[-1]
-        
-            output_a = tf.sparse.SparseTensor(indices=tf.stack([senders,receivers],axis=1), values = tf.ones_like(senders),dense_shape=[tf.shape(output_i)[0],tf.shape(output_i)[0]])
-            edge_distance = tf.expand_dims(tf.gather_nd(dist/MAX_RADIUS, sender_recv_list),-1)
-            edge_x_distance =  tf.expand_dims(tf.gather_nd(tf.math.cos(rel_angle_to_neigh),sender_recv_list),-1)  # neigbour position relative to sender heading
-            edge_y_distance =  tf.expand_dims(tf.gather_nd(tf.math.sin(rel_angle_to_neigh),sender_recv_list),-1)  # neigbour position relative to sender heading
-        
-            edge_x_orientation =  tf.expand_dims(tf.gather_nd(dvx,sender_recv_list),-1)  # neigbour velocity relative to sender heading
-            edge_y_orientation =  tf.expand_dims(tf.gather_nd(dvy,sender_recv_list),-1)  # neigbour velocity relative to sender heading
-        
-        
-            output_e = tf.concat([edge_distance,edge_x_distance,edge_y_distance,edge_x_orientation,edge_y_orientation],axis=-1)
-        
-            node_velocities = tf.reshape(V,(-1,2))
-            node_accelerations = tf.reshape(A,(-1,2))
-        
-            #output_x = tf.concat([node_velocities,node_accelerations],axis=-1)
-            output_x = node_velocities
-        
-            return output_x, output_a, output_e, output_i,output_ie#), targets/max_params    
-        
-        #####
         gnn_model = tf.keras.models.load_model('gnn/gnn_model')
         
         
         
-        #####
-        L= 100
-        N= 100 
-        repeat = 100
-        discard = 2000
-        timesteps = 1
-        save_interval=1
-        dt=0.1 
         
-        
-        data_sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True)
-        
-        
+        data_sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=data_repeat, dt=dt,save_interval=save_interval,disable_progress=True)
         
         data_sim.run_sim(lrep, lali, latt, va)
     
-        #####
         
         data_sum_stats = []
     
@@ -170,7 +51,7 @@ def setup_and_run_hmc(threadid):
             A = data_sim.micro_state[i,:,:,4:]
             
             
-            data_sum_stats.append(gnn_model(_parse_graph([X,V,A])).numpy())#[:,1:3])
+            data_sum_stats.append(gnn_model(model.parse_graph([X,V,A])[0]).numpy())#[:,1:3])
          
         
         
@@ -178,7 +59,6 @@ def setup_and_run_hmc(threadid):
         
         
         
-        ####
         data_vector = np.mean(macrodata,axis=0) 
         sd0 =  np.std(macrodata,axis=0) 
         cov = np.diag(sd0**2)
@@ -186,9 +66,9 @@ def setup_and_run_hmc(threadid):
             repeat = sim_output.shape[0]
             k = sim_output.shape[1]
                                     
-            #return np.log(1e-18 + 1/repeat *  (((2*pi)**k)**0.5*np.product(sd0))*np.sum(scipy.stats.multivariate_normal(data_vector,cov).pdf(sim_output)))
+            return np.log(1e-18 + 1/repeat *  (((2*pi)**k)**0.5*np.product(sd0))*np.sum(scipy.stats.multivariate_normal(data_vector,cov).pdf(sim_output)))
         
-            return np.log(1e-18 + 1/repeat * (((2*pi*np.product(sd0))**k)**0.5)*np.sum(scipy.stats.multivariate_normal(data_vector,cov).pdf(sim_output)))
+            #return np.log(1e-18 + 1/repeat * (((2*pi*np.product(sd0))**k)**0.5)*np.sum(scipy.stats.multivariate_normal(data_vector,cov).pdf(sim_output)))
 
 
         
@@ -196,8 +76,7 @@ def setup_and_run_hmc(threadid):
         def simulator_2d(params):
             
         
-            repeat = 500    
-            sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=1,disable_progress=True, save_micro=False)
+            sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=sim_repeat, dt=dt,save_interval=1,disable_progress=True, save_micro=False)
         
             
             sim.run_sim(lrep, params[0], params[1], va)
@@ -213,23 +92,12 @@ def setup_and_run_hmc(threadid):
                 A = sim.micro_state[i,:,:,4:]
         
         
-                sum_stats.append(gnn_model(_parse_graph([X,V,A])).numpy())#[:,1:3])
+                sum_stats.append(gnn_model(model.parse_graph([X,V,A])[0]).numpy())#[:,1:3])
         
             return np.array(sum_stats).reshape((-1,2))    
         
-        #####
-        #2D inference of l_ali and eta: 
-        ndim = 2
-        p_start = np.array([0.0,0.0])
-        p_range = np.array([25.0,25.0]) 
         
-        # number of waves
-        n_wave = 10
-        n_points = 25 
-        T = 3
-        
-        abcGP = gp_abc.abcGP(p_start,p_range,ndim,n_points,T,simulator_2d,abc_likelihood_2d) #synth_likelihood_function) #likelihood_function)
-        ####
+        abcGP = gp_abc.abcGP(p_start,p_range,ndim,n_points,T,simulator_2d,abc_likelihood_2d) 
         
         for i in range(n_wave):
             abcGP.runWave()     
@@ -237,25 +105,17 @@ def setup_and_run_hmc(threadid):
     
     
             
-            
-        ####
-            
         #am_sampler:
         Y = abcGP.sobol_points[np.isfinite(abcGP.likelihood)]
         logl = abcGP.predict_final(Y)[0]
         startval = Y[np.argsort(-logl[:,0])[0]]
-        #startval = abcGP.sobol_points[np.random.choice(abcGP.sobol_points.shape[0])]
-        #startval = abcGP.sobol_points[np.random.choice(abcGP.sobel_points.shape[0])]
-        prior = np.array(((0.0,25.0),(0.0,25.0)))  
         
         # step size is 1/50th of the plausible range
         steps = np.ptp(abcGP.sobol_points,axis=0)/50
         samples = am_sampler.am_sampler(abcGP.predict_final,ndim,startval,prior,steps, n_samples=mcmcsteps, burn_in=burnin, m=skip)
         
-        ####
-        
     
-        filename = '2d_gnn/rep_' + str(data_rep) + '_DI_' + str(threadid) + '.npy'
+        filename = 'results/2d_gnn/rep_' + str(data_rep) + '_DI_' + str(threadid) + '.npy'
         np.save(filename,samples)
 
 
