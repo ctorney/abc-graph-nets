@@ -45,15 +45,11 @@ import tensorflow as tf
 #sobol_points = np.load('sobol_points_2d.npy')
     
 ##
-sobol_listx = np.array([5,7.5,2.5,3.75]) #0,3,5,12])   
-sobol_listy = np.array([5,2.5,7.5,3.75]) #15,15,13,9]) 
-sobol_listx = np.array([0.0,3.0,15,15.0])
-sobol_listy = np.array([15.0,15.0,20,15.0])
+#sobol_listx = np.array([0.0,3.0,15.0,15.0])
+#sobol_listy = np.array([15.0,15.0,20.0,15.0])
+sobol_listx = np.array([0.0,2.0,9.0,14.0])
+sobol_listy = np.array([14.0,12.0,5.0,0.0])
 
-
-
-   # observability_sim = obs_list[threadid]
-# specify observation values to use here
 
 
 def setup_and_run_hmc(threadid):
@@ -62,20 +58,21 @@ def setup_and_run_hmc(threadid):
 
 
     num_reps = 10
-    burnin = 5000 #10000 mini test first
+    burnin = 10000 #10000 mini test first
     mcmcsteps = 2000 #8000
+    skip=10
     
     lali = sobol_listx[threadid]
     latt = sobol_listy[threadid]
-#        lali = sobol_points[dl,0]  #data instantiation
-#        latt = sobol_points[dl,1] 
+    va=1.5*pi
+    lrep= 1  
         
     for data_rep in range(num_reps):  
     
         ####
      
         max_params = np.array([25.0,25.0],dtype=np.float32)
-        MAX_RADIUS=25.
+        MAX_RADIUS=250.
         DOMAIN_SIZE=100.
         
         def _parse_graph(inputs):
@@ -136,7 +133,8 @@ def setup_and_run_hmc(threadid):
             node_velocities = tf.reshape(V,(-1,2))
             node_accelerations = tf.reshape(A,(-1,2))
         
-            output_x = node_velocities#tf.concat([node_velocities,node_accelerations],axis=-1)
+            #output_x = tf.concat([node_velocities,node_accelerations],axis=-1)
+            output_x = node_velocities
         
             return output_x, output_a, output_e, output_i,output_ie#), targets/max_params    
         
@@ -149,17 +147,14 @@ def setup_and_run_hmc(threadid):
         L= 100
         N= 100 
         repeat = 100
-        discard = 2500 #2000
+        discard = 2000
         timesteps = 1
-        save_interval=100
+        save_interval=1
         dt=0.1 
         
         
         data_sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True)
         
-        
-        va=1.5*pi
-        lrep= 1       
         
         
         data_sim.run_sim(lrep, lali, latt, va)
@@ -185,25 +180,24 @@ def setup_and_run_hmc(threadid):
         
         ####
         data_vector = np.mean(macrodata,axis=0) 
-        cov = np.std(macrodata,axis=0).mean()**2
-        
+        sd0 =  np.std(macrodata,axis=0) 
+        cov = np.diag(sd0**2)
         def abc_likelihood_2d(sim_output):
-            #ss_0 = macrodata
-            #'theta_DATA0 = np.mean(ss_0,axis=0) 
-            #'sd0 =  np.std(ss_0,axis=0) 
-            #'cov = np.diag(sd0**2)
             repeat = sim_output.shape[0]
             k = sim_output.shape[1]
-            
-            return np.log(1e-18 + 1/repeat * (((2*pi*cov)**k)**0.5)*np.sum(scipy.stats.multivariate_normal(data_vector,cov).pdf(sim_output)))
+                                    
+            #return np.log(1e-18 + 1/repeat *  (((2*pi)**k)**0.5*np.product(sd0))*np.sum(scipy.stats.multivariate_normal(data_vector,cov).pdf(sim_output)))
         
+            return np.log(1e-18 + 1/repeat * (((2*pi*np.product(sd0))**k)**0.5)*np.sum(scipy.stats.multivariate_normal(data_vector,cov).pdf(sim_output)))
+
+
         
-        sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval,disable_progress=True, save_micro=False)
         
         def simulator_2d(params):
-            repeat = 50    
             
         
+            repeat = 500    
+            sim = zonal_gnn.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=1,disable_progress=True, save_micro=False)
         
             
             sim.run_sim(lrep, params[0], params[1], va)
@@ -229,32 +223,18 @@ def setup_and_run_hmc(threadid):
         p_start = np.array([0.0,0.0])
         p_range = np.array([25.0,25.0]) 
         
-        # use values for plotting the predicted GP
-        X = np.array([np.linspace(p_start[0],p_start[0]+p_range[0],100),np.linspace(p_start[1],p_start[1]+p_range[1],100)])
-        y_previous = np.full((100,100),np.log(1e-18))
-        
         # number of waves
-        n_wave = 5
+        n_wave = 10
         n_points = 25 
-        T = 5
-        
-        # number of points to add per wave
-        #n_points = 80
-        #T=0.05
-        
-        data_lali = lali
-        data_latt = latt
+        T = 3
         
         abcGP = gp_abc.abcGP(p_start,p_range,ndim,n_points,T,simulator_2d,abc_likelihood_2d) #synth_likelihood_function) #likelihood_function)
         ####
         
         for i in range(n_wave):
             abcGP.runWave()     
-            
             abcGP.remove_implausible()
     
-            #if i>0:
-            #y_pred, y_std  = abcGP.predict_final(x_grid,remove_implausible=True)
     
             
             
@@ -267,15 +247,10 @@ def setup_and_run_hmc(threadid):
         #startval = abcGP.sobol_points[np.random.choice(abcGP.sobol_points.shape[0])]
         #startval = abcGP.sobol_points[np.random.choice(abcGP.sobel_points.shape[0])]
         prior = np.array(((0.0,25.0),(0.0,25.0)))  
-        print(startval)
         
         # step size is 1/50th of the plausible range
-        steps = np.ptp(abcGP.sobol_points,axis=0)/100
-        import time
-        start = time.time()
-        #samples = am_sampler.am_sampler(abcGP.predict_final,2,startval,prior,steps, n_samples=1000, burn_in=5000, m=20)
-        samples = am_sampler.am_sampler(abcGP.predict_final,2,startval,prior,steps, n_samples=mcmcsteps, burn_in=burnin, m=20)
-        print(time.time()-start)        
+        steps = np.ptp(abcGP.sobol_points,axis=0)/50
+        samples = am_sampler.am_sampler(abcGP.predict_final,ndim,startval,prior,steps, n_samples=mcmcsteps, burn_in=burnin, m=skip)
         
         ####
         
