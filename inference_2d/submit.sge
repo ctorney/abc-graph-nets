@@ -10,4 +10,6 @@
 source ~/anaconda3/bin/activate tf2.6
 
 # run the python file
-python run_gnn_2d.py
+#python run_gnn_2d.py
+python run_sampler_2d_multi_rc.py
+#python run_sampler_2d_multi_ss.py

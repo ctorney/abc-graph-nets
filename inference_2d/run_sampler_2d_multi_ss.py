@@ -25,18 +25,10 @@ from scipy.stats import gaussian_kde
 
 from simulations import zonal
 
-#sobol_points = np.load('sobol_points_2d.npy')
-    
-##
-#sobol_listx = np.array([5,7.5,2.5,3.75]) #0,3,5,12])   
-#sobol_listy = np.array([5,2.5,7.5,3.75]) #15,15,13,9]) 
-sobol_listx = np.array([1,3,10,20]) #0,3,5,12])   
-sobol_listy = np.array([15,15,10,10]) #15,15,13,9]) 
-
-
-
-   # observability_sim = obs_list[threadid]
-# specify observation values to use here
+#sobol_listx = np.array([0.0,3.0,15.0,15.0])
+#sobol_listy = np.array([15.0,15.0,20.0,3.0])
+sobol_listx = np.array([0.0,2.0,9.0,14.0])
+sobol_listy = np.array([14.0,12.0,5.0,0.0])
 
 
 def setup_and_run_hmc(threadid):
@@ -45,8 +37,9 @@ def setup_and_run_hmc(threadid):
 
 
     num_reps = 10
-    burnin = 5000 #10000
-    mcmcsteps = 1000 #8000
+    burnin = 10000
+    mcmcsteps = 2000 
+    skip=10
  
     
     
@@ -54,59 +47,56 @@ def setup_and_run_hmc(threadid):
         
     lali = sobol_listx[threadid]
     latt = sobol_listy[threadid]
-#        lali = sobol_points[dl,0]  #data instantiation
-#        latt = sobol_points[dl,1] 
-        
+    
+    va=1.5*pi
+    lrep= 1  
+
     for data_rep in range(num_reps):             
         ## generate data
-        L= 500 #200
+        L= 100
         discard= 2000 #2500 #5000 
         N= 100 #500
-        repeat = 100 #20 #100#0 
-        timesteps = 2 
+        repeat = 100 
+        timesteps = 1 
         save_interval=1 #0 #1
         dt=0.1 #1 #0.1
         simulation_cls = zonal.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=repeat, dt=dt,save_interval=save_interval)
             
+        simulation_cls.run_sim(lrep, lali, latt, va)
             
-        lrep= 1
-        eta=0.9
-        va=1.5*pi
-        vs=3 #5
-        sigma=0.1
-        simulation_cls.run_sim(eta, latt, lali, lrep, vs, va, sigma)
-            
-        data_eta=eta
         data_va=va
         data_latt=latt
         data_lali=lali
         data_lrep=lrep
-        data_vs = vs
-        data_sigma = sigma
             
-        DATA_y = [data_lali,data_latt,data_lrep,data_eta,data_vs,data_va,data_sigma]
+        #DATA_y = [data_lali,data_latt,data_lrep,data_eta,data_vs,data_va,data_sigma]
             
             
-        op, rot, ent, nnd, dis = simulation_cls.get_macro_states()
-        avgOPDATA=np.zeros(repeat)
-        avgROTDATA=np.zeros(repeat)
-        avgENTDATA=np.zeros(repeat)
-        avgNNDDATA=np.zeros(repeat)
-        avgDISDATA=np.zeros(repeat)
+        op, rot, nnd = simulation_cls.get_macro_states()
+        macrodata=  np.array([op[:,-1], rot[:,-1],nnd[:,-1]])
+        #avgOPDATA=np.zeros(repeat)
+        #avgROTDATA=np.zeros(repeat)
+        #avgNNDDATA=np.zeros(repeat)
             
             
-        for i in range(repeat):
-            avgOPDATA[i] = op[((i+1)*(timesteps-1))-1]  
-            avgROTDATA[i] = rot[((i+1)*(timesteps-1))-1] 
-            avgENTDATA[i] = ent[((i+1)*(timesteps-1))-1] 
-            avgNNDDATA[i] = nnd[((i+1)*(timesteps-1))-1] 
-            avgDISDATA[i] = dis[((i+1)*(timesteps-1))-1] 
+        #for i in range(repeat):
+        #    avgOPDATA[i] = op[((i+1)*(timesteps-1))-1]  
+        #    avgROTDATA[i] = rot[((i+1)*(timesteps-1))-1] 
+        #    avgNNDDATA[i] = nnd[((i+1)*(timesteps-1))-1] 
             
-        macrodata=  np.array([avgOPDATA,avgROTDATA,avgENTDATA,avgNNDDATA,avgDISDATA])
-        macrodata = np.squeeze([macrodata[np.r_[0:2,3],None]])    
+        #macrodata=  np.array([avgOPDATA,avgROTDATA,avgNNDDATA])
+
+        #print(macrodata[0].shape)
+        #print(macrodata[0])
+        #print(op.shape)
+
+        #ss_0 = macrodata
+        #theta_DATA0 = np.mean(ss_0,axis=-1) 
+        #sd0 =  np.std(ss_0,axis=-1) 
+        #print(sd0)
 
             
-        def abc_likelihood_2d(sim_output,rc):
+        def abc_likelihood_2d(sim_output,rc=None):
             theta_0 = sim_output
 
             ss_0 = macrodata
@@ -116,32 +106,29 @@ def setup_and_run_hmc(threadid):
             repeat = sim_output.shape[1]
             
             k = sd0.shape[0]
-            return np.log(1e-18 + 1/repeat * (((2*pi)**k)**0.5*np.product(sd0))*np.sum(scipy.stats.multivariate_normal(theta_DATA0,cov).pdf(theta_0.T)))
+            #return np.log(1e-18 + 1/repeat * (((2*pi)**k)**0.5*np.product(sd0))*np.sum(scipy.stats.multivariate_normal(theta_DATA0,cov).pdf(theta_0.T)))
+            return np.log(1e-18 + 1/repeat * (((2*pi*np.product(sd0))**k)**0.5)*np.sum(scipy.stats.multivariate_normal(theta_DATA0,cov).pdf(theta_0.T)))
 
 
         def simulator_2d(params):
-            repeat = 50    
+            repeat = 500    
             simulation_cls = zonal.zonal_model(N,timesteps+discard,discard=discard,repeat=repeat,L=L,dt=dt, save_interval=1,disable_progress=True) 
 
-            simulation_cls.run_sim(eta, params[1], params[0],lrep, vs, va, sigma)  
-            #output = simulation_cls.get_macro_states() 
+            #simulation_cls.run_sim(eta, params[2], params[1],params[0], vs, params[3], sigma) 
+            simulation_cls.run_sim(lrep, params[0], params[1], va)
+            
             output = np.array(simulation_cls.get_macro_states()) 
             
-            return np.squeeze([output[np.r_[0:2,3],None]]) 
-            #return np.array(output)
+            return output #np.squeeze([output[np.r_[0:2,3],None]]) 
                             
         #2D inference of l_ali and eta: 
         ndim = 2
         p_start = np.array([0.0,0.0])
         p_range = np.array([25.0,25.0]) 
                 
-        # use values for plotting the predicted GP
-        X = np.array([np.linspace(p_start[0],p_start[0]+p_range[0],100),np.linspace(p_start[1],p_start[1]+p_range[1],100)])
-        y_previous = np.full((100,100),np.log(1e-18))
-                
         # number of waves
-        n_wave = 10 
-        n_points = 20 
+        n_wave = 10
+        n_points = 25
         T = 3
                 
 
@@ -151,17 +138,17 @@ def setup_and_run_hmc(threadid):
         for i in range(n_wave):
             abcGP.runWave()
             abcGP.remove_implausible()                
-            #abcGP.update_rc()
                 
 
               
         #sampling:
-        # random plausible point to start with
-        startval = abcGP.sobel_points[np.random.choice(abcGP.sobel_points.shape[0])]
+        Y = abcGP.sobol_points[np.isfinite(abcGP.likelihood)]
+        logl = abcGP.predict_final(Y)[0]
+        startval = Y[np.argsort(-logl[:,0])[0]]
         # step size is 1/50th of the plausible range
-        steps = np.ptp(abcGP.sobel_points,axis=0)/50
+        steps = np.ptp(abcGP.sobol_points,axis=0)/50
         prior = np.array(((0.0,25.0),(0.0,25.0)))
-        samples = am_sampler.am_sampler(abcGP.predict_final,2,startval,prior, steps,n_samples=mcmcsteps, burn_in=burnin, m=100)
+        samples = am_sampler.am_sampler(abcGP.predict_final,ndim,startval,prior,steps, n_samples=mcmcsteps, burn_in=burnin, m=skip)
 
 
         filename = '2d_multi_ss/SR_rep_' + str(data_rep) + '_DI_' + str(threadid) + '.npy'

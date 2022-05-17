@@ -45,6 +45,8 @@ class zonal_model:
     def run_sim(self, *params):
 
         Rr, Ro, Ra, va = params
+        #Ro = Rr + Ror # absolute interaction distance (values are passed in as the interaction zone width)
+        #Ra = Ro + Rar # absolute interaction distance (values are passed in as the interaction zone width)
         
         
         # tensorflow function to run an update step
@@ -175,7 +177,7 @@ class zonal_model:
             positions, velocities = update_tf(self.positions,  self.velocities)
             self.positions = positions
             self.velocities = velocities
-            if i>self.discard:
+            if i>=self.discard:
                 if i%self.save_interval==0:
                         
                     self.macro_state1[:,counter] = self.compute_macro_state1().numpy()
@@ -241,8 +243,8 @@ class zonal_model:
 
     def get_macro_states(self):
     
-        order = np.ravel(self.macro_state1[:,:])
-        rotation = np.ravel(self.macro_state2[:,:])   # np.ravel(np.diff(self.macro_state))
-        nn_dist = np.ravel(self.macro_state3[:,:]) 
+        order = self.macro_state1[:,:]
+        rotation = self.macro_state2[:,:]   # np.ravel(np.diff(self.macro_state))
+        nn_dist = self.macro_state3[:,:] 
         
         return order, rotation, nn_dist
