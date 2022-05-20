@@ -10,11 +10,12 @@ import os, sys
 from math import *
 import tensorflow as tf 
 
+import scipy
 
 sys.path.append('..')
 
 
-from gpabc import gp_abc
+from gpabc import gp_abc_rc
 from gpabc import am_sampler
 from simulations import zonal
 from gnn_model import model
@@ -68,10 +69,10 @@ def setup_and_run_hmc(threadid):
             
             output = np.array(simulation_cls.get_macro_states()) 
             
-            return output
+            return output[...,-1]
                             
 
-        abcGP = gp_abc_rc.abcGP(p_start,p_range,ndim,n_points,T,simulator_2d,abc_likelihood_2d) 
+        abcGP = gp_abc_rc.abcGP(p_start,p_range,ndim,n_points,T,simulator_4d,abc_likelihood_4d) 
                 
                 
         for i in range(n_wave):

@@ -9,6 +9,7 @@ import os, sys
 from math import *
 import tensorflow as tf 
 
+import scipy
 
 sys.path.append('..')
 
@@ -57,7 +58,7 @@ def setup_and_run_hmc(threadid):
             return np.log(1e-18 + 1/repeat * (((2*pi)**k)**0.5*np.product(sd0))*np.sum(scipy.stats.multivariate_normal(theta_DATA0,cov).pdf(theta_0.T)))
             
 
-        def simulator_2d(params):
+        def simulator_4d(params):
             simulation_cls = zonal.zonal_model(N,timesteps+discard,discard=discard,repeat=sim_repeat,L=L,dt=dt, save_interval=1,disable_progress=True) 
 
             simulation_cls.run_sim(params[0], params[1], params[2], params[3])
@@ -67,7 +68,7 @@ def setup_and_run_hmc(threadid):
             return output 
                             
 
-        abcGP = gp_abc.abcGP(p_start,p_range,ndim,n_points,T,simulator_2d,abc_likelihood_2d) 
+        abcGP = gp_abc.abcGP(p_start,p_range,ndim,n_points,T,simulator_4d,abc_likelihood_4d) 
                 
         for i in range(n_wave):
             abcGP.runWave()

@@ -10,6 +10,7 @@ import os, sys
 from math import *
 import tensorflow as tf 
 
+import scipy
 
 sys.path.append('..')
 
@@ -45,7 +46,7 @@ def setup_and_run_hmc(threadid):
         
         data_sum_stats = []
     
-        for i in range(repeat):
+        for i in range(data_repeat):
         
             X = data_sim.micro_state[i,:,:,:2]
             V = data_sim.micro_state[i,:,:,2:4]
