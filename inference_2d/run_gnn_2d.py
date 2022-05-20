@@ -13,6 +13,7 @@ import tensorflow as tf
 
 sys.path.append('..')
 
+import scipy
 
 from gpabc import gp_abc
 from gpabc import am_sampler
@@ -44,7 +45,7 @@ def setup_and_run_hmc(threadid):
         
         data_sum_stats = []
     
-        for i in range(repeat):
+        for i in range(data_repeat):
         
             X = data_sim.micro_state[i,:,:,:2]
             V = data_sim.micro_state[i,:,:,2:4]
@@ -85,7 +86,7 @@ def setup_and_run_hmc(threadid):
             sum_stats = []
         
         
-            for i in range(repeat):
+            for i in range(sim_repeat):
         
                 X = sim.micro_state[i,:,:,:2]
                 V = sim.micro_state[i,:,:,2:4]

@@ -11,6 +11,7 @@ import tensorflow as tf
 
 sys.path.append('..')
 
+import scipy
 
 from gpabc import gp_abc
 from gpabc import am_sampler

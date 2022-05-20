@@ -13,11 +13,12 @@ import tensorflow as tf
 sys.path.append('..')
 
 
-from gpabc import gp_abc
+from gpabc import gp_abc_rc
 from gpabc import am_sampler
 from simulations import zonal
 from params2d import *
 
+import scipy
 
 
 
