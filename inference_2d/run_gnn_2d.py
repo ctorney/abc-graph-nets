@@ -56,7 +56,7 @@ def setup_and_run_hmc(threadid):
          
         
         
-        macrodata = np.array(data_sum_stats).reshape((-1,2))
+        macrodata = np.array(data_sum_stats).reshape((-1,ndim))
         
         
         
@@ -95,7 +95,7 @@ def setup_and_run_hmc(threadid):
         
                 sum_stats.append(gnn_model(model.parse_graph([X,V,A])[0]).numpy())#[:,1:3])
         
-            return np.array(sum_stats).reshape((-1,2))    
+            return np.array(sum_stats).reshape((-1,ndim))    
         
         
         abcGP = gp_abc.abcGP(p_start,p_range,ndim,n_points,T,simulator_2d,abc_likelihood_2d) 
@@ -113,7 +113,7 @@ def setup_and_run_hmc(threadid):
         
         # step size is 1/50th of the plausible range
         steps = np.ptp(abcGP.sobol_points,axis=0)/50
-        samples = am_sampler.am_sampler(abcGP.predict_final,ndim,startval,prior,steps, n_samples=mcmcsteps, burn_in=burnin, m=skip)
+        samples = am_sampler.am_sampler(abcGP.predict_final,ndim,startval,prior,steps, n_samples=mcmcsteps, burn_in=burnin, m=thin)
         
     
         filename = 'results/2d_gnn/rep_' + str(data_rep) + '_DI_' + str(threadid) + '.npy'
