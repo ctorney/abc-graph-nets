@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Dense, Input, Concatenate
+from tensorflow.keras.layers import Dense, Input, Concatenate, Lambda, Dropout
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
 
@@ -75,12 +75,12 @@ def parse_graph(inputs, targets=None):
     
 
 
-def get_gnn_model(n_outputs):
+def get_gnn_model(n_outputs): #, max_values):
 
     n_feat_node=2
     n_feat_edge=5
 
-    MLP_SIZE=16
+    MLP_SIZE=16*2
 
     X_in = Input(shape=(n_feat_node,))
     A_in = Input(shape=(None,), sparse=True)
@@ -89,22 +89,28 @@ def get_gnn_model(n_outputs):
     IE_in = Input(shape=(), dtype=tf.int64)
 
 
-    X = Dense(MLP_SIZE, activation="linear")(X_in)
-    E = Dense(MLP_SIZE, activation="linear")(E_in)
+    X = Dense(MLP_SIZE, activation="relu")(X_in)
+    E = Dense(MLP_SIZE, activation="relu")(E_in)
+    #X = Dropout(0.5)(X)
 
 
     X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
+    X, E = XENetConv([MLP_SIZE,MLP_SIZE], MLP_SIZE, 2*MLP_SIZE, node_activation="tanh", edge_activation="tanh")([X, A_in, E])
 
-    X = Dense(MLP_SIZE, activation="linear",use_bias=True)(X)
+    X = Dropout(0.1)(X)
+    X = Dense(MLP_SIZE, activation="relu",use_bias=True)(X)
 
     Xm = GlobalMaxPool()([X, I_in])
     Xa = GlobalAvgPool()([X, I_in])
 
     X = Concatenate()([Xm,Xa])
+    X = Dropout(0.1)(X)
 
-    X = Dense(MLP_SIZE, activation="linear",use_bias=True)(X)
+    X = Dense(MLP_SIZE, activation="relu",use_bias=True)(X)
+    X = Dropout(0.1)(X)
 
     output = Dense(n_outputs, activation="softplus",use_bias=True)(X)
+    #output = Lambda(lambda X: tf.math.multiply(X, tf.constant(max_values,dtype=tf.float32)))(X) 
 
     gnn_model = Model(inputs=[X_in, A_in, E_in, I_in, IE_in], outputs=output)
 
