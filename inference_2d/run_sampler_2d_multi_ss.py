@@ -77,7 +77,7 @@ def setup_and_run_hmc(threadid):
         startval = Y[np.argsort(-logl[:,0])[0]]
         # step size is 1/50th of the plausible range
         steps = np.ptp(abcGP.sobol_points,axis=0)/50
-        samples = am_sampler.am_sampler(abcGP.predict_final,ndim,startval,prior,steps, n_samples=mcmcsteps, burn_in=burnin, m=skip)
+        samples = am_sampler.am_sampler(abcGP.predict_final,ndim,startval,prior,steps, n_samples=mcmcsteps, burn_in=burnin, m=thin)
 
 
         filename = '2d_multi_ss/rep_' + str(data_rep) + '_DI_' + str(threadid) + '.npy'
