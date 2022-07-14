@@ -27,8 +27,8 @@ def setup_and_run_hmc(threadid):
     tf.random.set_seed(threadid)
 
         
-    lali = sobol_listx[threadid]
-    latt = sobol_listy[threadid]
+    lali = halton_listx[threadid]
+    latt = halton_listy[threadid]
         
     for data_rep in range(num_reps):             
         simulation_cls = zonal.zonal_model(N,timesteps=timesteps+discard,discard=discard,L=L,repeat=data_repeat, dt=dt,save_interval=save_interval)
@@ -76,11 +76,11 @@ def setup_and_run_hmc(threadid):
 
               
         #am_sampler:
-        Y = abcGP.sobol_points[np.isfinite(abcGP.likelihood)]
+        Y = abcGP.halton_points[np.isfinite(abcGP.likelihood)]
         logl = abcGP.predict_final(Y)[0]
         startval = Y[np.argsort(-logl[:,0])[0]]
         # step size is 1/50th of the plausible range
-        steps = np.ptp(abcGP.sobol_points,axis=0)/50
+        steps = np.ptp(abcGP.halton_points,axis=0)/50
         samples = am_sampler.am_sampler(abcGP.predict_final,ndim,startval,prior,steps, n_samples=mcmcsteps, burn_in=burnin, m=thin)
 
 
