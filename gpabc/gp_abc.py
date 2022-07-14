@@ -12,20 +12,20 @@ from scipy.stats import qmc
 from tqdm import tqdm
 
 class abcGP:
-    def __init__(self, sobol_start, sobol_range, input_dim, n_points,T, simulator, likelihood_function, max_l=None, min_l=None):
+    def __init__(self, halton_start, halton_range, input_dim, n_points,T, simulator, likelihood_function, max_l=None, min_l=None):
 
-        self.sobol_start = sobol_start
-        self.sobol_range = sobol_range
+        self.halton_start = halton_start
+        self.halton_range = halton_range
         self.input_dim = input_dim
         self.n_points = n_points
-        self.l_init = sobol_range/((n_points-1)**(1./input_dim))
+        self.l_init = halton_range/((n_points-1)**(1./input_dim))
         self.T = T
-        self.sobol_generator = qmc.Halton(d=self.input_dim, scramble=False)
-        self.sobol_generator.fast_forward(1) # skip the first point at origin
-        self.sobol_points = self.sobol_generator.random(self.n_points)
+        self.halton_generator = qmc.Halton(d=self.input_dim, scramble=False)
+        self.halton_generator.fast_forward(1) # skip the first point at origin
+        self.halton_points = self.halton_generator.random(self.n_points)
         self.skip = self.n_points
 
-        self.sobol_points = self.sobol_start + self.sobol_range*self.sobol_points
+        self.halton_points = self.halton_start + self.halton_range*self.halton_points
         self.simulator = simulator
 
         self.likelihood_function = likelihood_function
@@ -38,7 +38,7 @@ class abcGP:
     def runWave(self):
         # run a GP wave
 
-        for i, p in tqdm(enumerate(self.sobol_points)):
+        for i, p in tqdm(enumerate(self.halton_points)):
 
             # points have a nan likelihood if they haven't been evaluated
             # so we skip points that are finite to include previous sims in the GP
@@ -52,7 +52,7 @@ class abcGP:
         # fit gp
         Y = self.likelihood[np.isfinite(self.likelihood)]
 
-        X = self.sobol_points[np.isfinite(self.likelihood)]
+        X = self.halton_points[np.isfinite(self.likelihood)]
         Y_mean = np.mean(Y)
         Y_std = np.std(Y)+1e-3
 
@@ -72,8 +72,8 @@ class abcGP:
 
         # constrain the lengthscale so that the minimum L is greater than the approx distance between points
         for i in range(self.input_dim):
-            minL = self.sobol_range[i]/points_per_dim
-            maxL = self.sobol_range[i]
+            minL = self.halton_range[i]/points_per_dim
+            maxL = self.halton_range[i]
 
             m.rbf.lengthscale[[i]].constrain_bounded(minL,maxL) 
         
@@ -90,32 +90,32 @@ class abcGP:
         #self.gp.append([gp,Y_mean,Y_std,Y_max])
 
 
-        all_sobol_points = self.sobol_generator.random(self.n_points)
+        all_halton_points = self.halton_generator.random(self.n_points)
         self.skip += self.n_points
-        all_sobol_points = self.sobol_start + self.sobol_range*all_sobol_points
-        plausible_indexes = self.calculate_plausibility(all_sobol_points)
-        all_sobol_points = all_sobol_points[plausible_indexes]
+        all_halton_points = self.halton_start + self.halton_range*all_halton_points
+        plausible_indexes = self.calculate_plausibility(all_halton_points)
+        all_halton_points = all_halton_points[plausible_indexes]
         # add new points
-        while all_sobol_points.shape[0]<self.n_points:
-            #new_sobol_points = i4_sobol_generate(self.input_dim,self.n_points,skip=self.skip)
+        while all_halton_points.shape[0]<self.n_points:
+            #new_halton_points = i4_halton_generate(self.input_dim,self.n_points,skip=self.skip)
             #self.skip += self.n_points
-            new_sobol_points = self.sobol_generator.random(1)
+            new_halton_points = self.halton_generator.random(1)
             self.skip += 1
-            new_sobol_points = self.sobol_start + self.sobol_range*new_sobol_points
-            plausible_indexes = self.calculate_plausibility(new_sobol_points)
-            new_sobol_points = new_sobol_points[plausible_indexes]
-            all_sobol_points= np.vstack((all_sobol_points,new_sobol_points))
+            new_halton_points = self.halton_start + self.halton_range*new_halton_points
+            plausible_indexes = self.calculate_plausibility(new_halton_points)
+            new_halton_points = new_halton_points[plausible_indexes]
+            all_halton_points= np.vstack((all_halton_points,new_halton_points))
 
-        self.sobol_points = np.vstack((self.sobol_points,all_sobol_points))
-        self.likelihood = np.append(self.likelihood,np.full(all_sobol_points.shape[0],np.nan))
-        self.sim_output = self.sim_output + [None]*all_sobol_points.shape[0]
+        self.halton_points = np.vstack((self.halton_points,all_halton_points))
+        self.likelihood = np.append(self.likelihood,np.full(all_halton_points.shape[0],np.nan))
+        self.sim_output = self.sim_output + [None]*all_halton_points.shape[0]
         return
 
     def remove_implausible(self):
         # remove implausible points
-        plausible_indexes = self.calculate_plausibility(self.sobol_points)
+        plausible_indexes = self.calculate_plausibility(self.halton_points)
 
-        self.sobol_points = self.sobol_points[plausible_indexes]
+        self.halton_points = self.halton_points[plausible_indexes]
         self.likelihood = self.likelihood[plausible_indexes]
         self.sim_output = [item for keep, item in zip(plausible_indexes, self.sim_output) if keep]
 
@@ -123,7 +123,7 @@ class abcGP:
         # use the stored simulation output to recalculate with new
         # regression coefficients
 
-        for i, p in tqdm(enumerate(self.sobol_points)):
+        for i, p in tqdm(enumerate(self.halton_points)):
 
             # points have a nan likelihood if they haven't been evaluated
             # so we skip points that are finite to include previous sims in the GP
@@ -133,7 +133,7 @@ class abcGP:
 
     def update_rc(self):
         # update the regression coefficients using latest plausible points
-        Y = self.sobol_points[np.isfinite(self.likelihood)]
+        Y = self.halton_points[np.isfinite(self.likelihood)]
         
         #return if we don't have at least 2 plausible locations
         if len(Y)<=1: 
