@@ -3,10 +3,10 @@ import numpy as np
 
 
 # parameters to scan
-sobol_listx = np.array([1.0,3.0,10.0,10.0])
-sobol_listy = np.array([9.0,12.0,10.0,5.0]) 
-sobol_listva = np.array([1.5*pi, pi, 0.5*pi, 1.75*pi]) 
-sobol_listlrep = np.array([0.5,2.0,3.0,1.0])    
+halton_listx = np.array([1.0,3.0,10.0,10.0])
+halton_listy = np.array([9.0,12.0,10.0,5.0]) 
+halton_listva = np.array([1.5*pi, pi, 0.5*pi, 1.75*pi]) 
+halton_listlrep = np.array([0.5,2.0,3.0,1.0])    
 
 num_reps = 10
 
